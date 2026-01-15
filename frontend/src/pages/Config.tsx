@@ -9,12 +9,15 @@ import {
   Clock,
   FileText,
   AlertTriangle,
+  Loader2,
 } from 'lucide-react'
 import Card from '../components/Card'
 import { configApi, fleetApi } from '../services/api'
+import { useLanguage } from '../i18n/LanguageContext'
 import type { ConfigSnapshot } from '../types'
 
 export default function Config() {
+  const { t } = useLanguage()
   const queryClient = useQueryClient()
   const [configYaml, setConfigYaml] = useState('')
   const [selectedNode, setSelectedNode] = useState<number | null>(null)
@@ -38,6 +41,9 @@ export default function Config() {
     onSuccess: (data) => {
       setPlanResult(data)
     },
+    onError: (error) => {
+      alert(`Plan 失敗: ${error}`)
+    },
   })
 
   const applyMutation = useMutation({
@@ -46,17 +52,25 @@ export default function Config() {
       config_yaml: configYaml,
       notes: 'Applied from UI',
     }),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['config-snapshots'] })
       setPlanResult(null)
       setConfigYaml('')
+      alert(data.success ? '配置套用成功！' : `配置套用失敗: ${data.error}`)
+    },
+    onError: (error) => {
+      alert(`Apply 失敗: ${error}`)
     },
   })
 
   const rollbackMutation = useMutation({
     mutationFn: (snapshotId: number) => configApi.rollback(snapshotId),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['config-snapshots'] })
+      alert(data.success ? '回滾成功！' : `回滾失敗: ${data.error}`)
+    },
+    onError: (error) => {
+      alert(`回滾失敗: ${error}`)
     },
   })
 
@@ -65,27 +79,27 @@ export default function Config() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Config Management</h1>
-          <p className="text-gray-500 mt-1">Terraform-like plan/apply workflow</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t.config.title}</h1>
+          <p className="text-gray-500 mt-1">{t.config.subtitle}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Config Editor */}
         <div className="lg:col-span-2 space-y-6">
-          <Card title="Configuration Editor">
+          <Card title={t.config.configuration}>
             <div className="space-y-4">
               {/* Node Selector */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Target Node
+                  {t.config.targetNode}
                 </label>
                 <select
                   value={selectedNode || ''}
                   onChange={(e) => setSelectedNode(e.target.value ? Number(e.target.value) : null)}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                 >
-                  <option value="">All Nodes (Fleet-wide)</option>
+                  <option value="">{t.config.allNodes}</option>
                   {nodes?.nodes?.map((node: any) => (
                     <option key={node.id} value={node.id}>
                       {node.name} ({node.environment})
@@ -97,7 +111,7 @@ export default function Config() {
               {/* YAML Editor */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Configuration (YAML)
+                  {t.config.configuration}
                 </label>
                 <textarea
                   value={configYaml}
@@ -119,16 +133,24 @@ paths:
                   disabled={!configYaml || planMutation.isPending}
                   className="flex items-center gap-2 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 disabled:opacity-50"
                 >
-                  <Play className="w-4 h-4" />
-                  Plan
+                  {planMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Play className="w-4 h-4" />
+                  )}
+                  {t.config.plan}
                 </button>
                 <button
                   onClick={() => applyMutation.mutate()}
                   disabled={!planResult?.can_apply || applyMutation.isPending}
                   className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
                 >
-                  <Check className="w-4 h-4" />
-                  Apply
+                  {applyMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Check className="w-4 h-4" />
+                  )}
+                  {t.config.apply}
                 </button>
                 <button
                   onClick={() => {
@@ -138,7 +160,7 @@ paths:
                   className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
                 >
                   <X className="w-4 h-4" />
-                  Clear
+                  {t.config.clear}
                 </button>
               </div>
             </div>
@@ -146,7 +168,7 @@ paths:
 
           {/* Plan Result */}
           {planResult && (
-            <Card title="Plan Result">
+            <Card title={t.config.planResult}>
               <div className="space-y-4">
                 {/* Validation */}
                 <div className={`p-4 rounded-lg ${
@@ -161,7 +183,7 @@ paths:
                       <AlertTriangle className="w-5 h-5 text-red-600" />
                     )}
                     <span className="font-medium">
-                      {planResult.validation?.valid ? 'Validation Passed' : 'Validation Failed'}
+                      {planResult.validation?.valid ? t.config.validationPassed : t.config.validationFailed}
                     </span>
                   </div>
                   {planResult.validation?.errors?.length > 0 && (
@@ -183,7 +205,7 @@ paths:
                 {/* Diff */}
                 {planResult.diff?.has_changes && (
                   <div>
-                    <h4 className="font-medium text-gray-700 mb-2">Changes</h4>
+                    <h4 className="font-medium text-gray-700 mb-2">{t.config.changes}</h4>
                     <pre className="p-4 bg-gray-900 text-gray-100 rounded-lg text-sm overflow-x-auto">
                       {planResult.diff.unified_diff}
                     </pre>
@@ -191,7 +213,7 @@ paths:
                 )}
 
                 {!planResult.diff?.has_changes && planResult.can_apply && (
-                  <p className="text-gray-500">No changes detected</p>
+                  <p className="text-gray-500">{t.config.noChangesDetected}</p>
                 )}
               </div>
             </Card>
@@ -199,7 +221,7 @@ paths:
         </div>
 
         {/* Snapshots History */}
-        <Card title="Recent Snapshots" padding="none">
+        <Card title={t.config.recentSnapshots} padding="none">
           <div className="divide-y divide-gray-100 max-h-[600px] overflow-y-auto">
             {snapshots?.snapshots?.length > 0 ? (
               snapshots.snapshots.map((snapshot: ConfigSnapshot) => (
@@ -213,7 +235,7 @@ paths:
                     </div>
                     {snapshot.applied && (
                       <span className="px-2 py-0.5 text-xs bg-green-100 text-green-800 rounded-full">
-                        Applied
+                        {t.config.applied}
                       </span>
                     )}
                   </div>
@@ -233,10 +255,14 @@ paths:
                     <button
                       onClick={() => rollbackMutation.mutate(snapshot.id)}
                       disabled={rollbackMutation.isPending}
-                      className="flex items-center gap-1 text-sm text-primary-600 hover:text-primary-700"
+                      className="flex items-center gap-1 text-sm text-primary-600 hover:text-primary-700 disabled:opacity-50"
                     >
-                      <RotateCcw className="w-3 h-3" />
-                      Rollback to this
+                      {rollbackMutation.isPending ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <RotateCcw className="w-3 h-3" />
+                      )}
+                      {t.config.rollbackToThis}
                     </button>
                   </div>
                 </div>
@@ -244,7 +270,7 @@ paths:
             ) : (
               <div className="p-8 text-center text-gray-500">
                 <Settings className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                No snapshots yet
+                {t.config.noSnapshotsYet}
               </div>
             )}
           </div>

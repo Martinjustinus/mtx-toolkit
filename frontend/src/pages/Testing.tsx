@@ -9,13 +9,16 @@ import {
   Radio,
   Wifi,
   Activity,
+  Loader2,
 } from 'lucide-react'
 import Card from '../components/Card'
 import StatusBadge from '../components/StatusBadge'
 import { healthApi } from '../services/api'
+import { useLanguage } from '../i18n/LanguageContext'
 import type { ProbeResult } from '../types'
 
 export default function Testing() {
+  const { t } = useLanguage()
   const [testUrl, setTestUrl] = useState('')
   const [protocol, setProtocol] = useState('rtsp')
   const [probeResult, setProbeResult] = useState<ProbeResult | null>(null)
@@ -24,6 +27,10 @@ export default function Testing() {
     mutationFn: () => healthApi.probeUrl(testUrl, protocol),
     onSuccess: (data) => {
       setProbeResult(data)
+      alert(`探測完成: ${data.is_healthy ? '健康' : '不健康'}`)
+    },
+    onError: (error) => {
+      alert(`探測失敗: ${error}`)
     },
   })
 
@@ -63,18 +70,18 @@ export default function Testing() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Integration Testing</h1>
-          <p className="text-gray-500 mt-1">Test stream analysis and fault detection</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t.testing.title}</h1>
+          <p className="text-gray-500 mt-1">{t.testing.subtitle}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Stream Probe */}
-        <Card title="Stream Probe" subtitle="Test URL health check">
+        <Card title={t.testing.streamProbe} subtitle={t.testing.testUrlHealthCheck}>
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Stream URL
+                {t.testing.streamUrl}
               </label>
               <input
                 type="text"
@@ -87,7 +94,7 @@ export default function Testing() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Protocol
+                {t.testing.protocol}
               </label>
               <select
                 value={protocol}
@@ -107,17 +114,17 @@ export default function Testing() {
               className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
             >
               {probeMutation.isPending ? (
-                <Activity className="w-4 h-4 animate-spin" />
+                <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <Play className="w-4 h-4" />
               )}
-              Run Probe
+              {t.testing.runProbe}
             </button>
           </div>
         </Card>
 
         {/* Probe Result */}
-        <Card title="Probe Result" subtitle="Analysis output">
+        <Card title={t.testing.probeResult} subtitle="Analysis output">
           {probeResult ? (
             <div className="space-y-4">
               {/* Status */}
@@ -133,7 +140,7 @@ export default function Testing() {
                     <XCircle className="w-6 h-6 text-red-600" />
                   )}
                   <span className="font-semibold text-lg">
-                    {probeResult.is_healthy ? 'Stream Healthy' : 'Stream Unhealthy'}
+                    {probeResult.is_healthy ? t.testing.streamHealthy : t.testing.streamUnhealthy}
                   </span>
                 </div>
                 <StatusBadge status={probeResult.status} />
@@ -142,11 +149,11 @@ export default function Testing() {
               {/* Metrics */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-500">FPS</p>
+                  <p className="text-sm text-gray-500">{t.streams.fps}</p>
                   <p className="text-lg font-semibold">{probeResult.fps?.toFixed(1) || '-'}</p>
                 </div>
                 <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-sm text-gray-500">Bitrate</p>
+                  <p className="text-sm text-gray-500">{t.streams.bitrate}</p>
                   <p className="text-lg font-semibold">
                     {probeResult.bitrate ? `${(probeResult.bitrate / 1000).toFixed(0)} kbps` : '-'}
                   </p>
@@ -168,7 +175,7 @@ export default function Testing() {
               {/* Issues */}
               {probeResult.issues && probeResult.issues.length > 0 && (
                 <div>
-                  <h4 className="font-medium text-gray-700 mb-2">Issues Detected</h4>
+                  <h4 className="font-medium text-gray-700 mb-2">{t.testing.issuesDetected}</h4>
                   <ul className="space-y-2">
                     {probeResult.issues.map((issue, i) => (
                       <li key={i} className="flex items-center gap-2 text-yellow-700">
@@ -190,14 +197,14 @@ export default function Testing() {
           ) : (
             <div className="flex flex-col items-center justify-center py-12 text-gray-400">
               <Radio className="w-12 h-12 mb-4" />
-              <p>Run a probe to see results</p>
+              <p>{t.testing.runProbeSeeResults}</p>
             </div>
           )}
         </Card>
       </div>
 
       {/* Test Scenarios */}
-      <Card title="Test Scenarios" subtitle="Pre-configured test streams">
+      <Card title={t.testing.testScenarios} subtitle={t.testing.preConfiguredTestStreams}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {testScenarios.map((scenario) => (
             <div
@@ -223,13 +230,22 @@ export default function Testing() {
               </div>
 
               <div className="mt-3 flex gap-2">
-                <button className="flex items-center gap-1 px-3 py-1.5 text-sm bg-primary-600 text-white rounded hover:bg-primary-700">
+                <button
+                  onClick={() => alert('測試場景啟動功能開發中')}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm bg-primary-600 text-white rounded hover:bg-primary-700"
+                >
                   <Play className="w-3 h-3" />
-                  Start
+                  {t.testing.start}
                 </button>
-                <button className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-200 rounded hover:bg-gray-50">
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(scenario.command)
+                    alert('已複製到剪貼簿')
+                  }}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm border border-gray-200 rounded hover:bg-gray-50"
+                >
                   <Terminal className="w-3 h-3" />
-                  Copy
+                  {t.testing.copy}
                 </button>
               </div>
             </div>
@@ -238,38 +254,47 @@ export default function Testing() {
       </Card>
 
       {/* Integration Test Suite */}
-      <Card title="Integration Test Suite" subtitle="Automated test runners">
+      <Card title={t.testing.integrationTestSuite} subtitle={t.testing.automatedTestRunners}>
         <div className="space-y-4">
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
             <div>
-              <h4 className="font-medium text-gray-900">Full Integration Test</h4>
+              <h4 className="font-medium text-gray-900">{t.testing.fullIntegrationTest}</h4>
               <p className="text-sm text-gray-500">Run all tests: stream detection, remediation, recording</p>
             </div>
-            <button className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+            <button
+              onClick={() => alert('整合測試功能開發中')}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            >
               <Play className="w-4 h-4" />
-              Run All Tests
+              {t.testing.runAllTests}
             </button>
           </div>
 
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
             <div>
-              <h4 className="font-medium text-gray-900">Stress Test</h4>
+              <h4 className="font-medium text-gray-900">{t.testing.stressTest}</h4>
               <p className="text-sm text-gray-500">Simulate high load with multiple concurrent streams</p>
             </div>
-            <button className="flex items-center gap-2 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700">
+            <button
+              onClick={() => alert('壓力測試功能開發中')}
+              className="flex items-center gap-2 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700"
+            >
               <Activity className="w-4 h-4" />
-              Run Stress Test
+              {t.testing.runStressTest}
             </button>
           </div>
 
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
             <div>
-              <h4 className="font-medium text-gray-900">Fault Injection</h4>
+              <h4 className="font-medium text-gray-900">{t.testing.faultInjection}</h4>
               <p className="text-sm text-gray-500">Test network issues: packet loss, latency, disconnects</p>
             </div>
-            <button className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+            <button
+              onClick={() => alert('故障注入功能開發中')}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+            >
               <Wifi className="w-4 h-4" />
-              Inject Faults
+              {t.testing.injectFaults}
             </button>
           </div>
         </div>

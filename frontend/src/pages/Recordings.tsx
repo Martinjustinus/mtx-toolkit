@@ -10,16 +10,20 @@ import {
   Search,
   AlertTriangle,
   RefreshCw,
+  Loader2,
 } from 'lucide-react'
 import Card from '../components/Card'
 import StatCard from '../components/StatCard'
 import { recordingsApi } from '../services/api'
+import { useLanguage } from '../i18n/LanguageContext'
 import type { Recording } from '../types'
 
 export default function Recordings() {
+  const { t } = useLanguage()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [segmentType, setSegmentType] = useState('')
+  const [archivingId, setArchivingId] = useState<number | null>(null)
 
   const { data: recordings, isLoading } = useQuery({
     queryKey: ['recordings', segmentType],
@@ -34,17 +38,31 @@ export default function Recordings() {
   })
 
   const archiveMutation = useMutation({
-    mutationFn: (id: number) => recordingsApi.archive(id),
+    mutationFn: (id: number) => {
+      setArchivingId(id)
+      return recordingsApi.archive(id)
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['recordings'] })
+      alert('歸檔成功！')
+    },
+    onError: (error) => {
+      alert(`歸檔失敗: ${error}`)
+    },
+    onSettled: () => {
+      setArchivingId(null)
     },
   })
 
   const cleanupMutation = useMutation({
     mutationFn: () => recordingsApi.triggerCleanup(false),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['recordings'] })
       queryClient.invalidateQueries({ queryKey: ['retention-status'] })
+      alert(`清理完成！刪除了 ${data.deleted_count || 0} 個檔案`)
+    },
+    onError: (error) => {
+      alert(`清理失敗: ${error}`)
     },
   })
 
@@ -74,42 +92,46 @@ export default function Recordings() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Recordings</h1>
-          <p className="text-gray-500 mt-1">Recording management and retention</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t.recordings.title}</h1>
+          <p className="text-gray-500 mt-1">{t.recordings.subtitle}</p>
         </div>
         <button
           onClick={() => cleanupMutation.mutate()}
           disabled={cleanupMutation.isPending}
-          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
+          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
         >
-          <Trash2 className="w-4 h-4" />
-          Run Cleanup
+          {cleanupMutation.isPending ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Trash2 className="w-4 h-4" />
+          )}
+          {t.recordings.runCleanup}
         </button>
       </div>
 
       {/* Storage Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <StatCard
-          title="Total Recordings"
+          title={t.recordings.totalRecordings}
           value={status?.recordings.total || 0}
           icon={<Film className="w-6 h-6" />}
           color="default"
         />
         <StatCard
-          title="Total Size"
+          title={t.recordings.totalSize}
           value={`${status?.recordings.total_size_gb || 0} GB`}
           icon={<HardDrive className="w-6 h-6" />}
           color="default"
         />
         <StatCard
-          title="Disk Usage"
+          title={t.recordings.diskUsage}
           value={`${status?.disk.usage_percent || 0}%`}
-          subtitle={`${status?.disk.free_gb || 0} GB free`}
+          subtitle={`${status?.disk.free_gb || 0} GB ${t.recordings.free}`}
           icon={<HardDrive className="w-6 h-6" />}
           color={status?.disk.is_critical ? 'danger' : 'success'}
         />
         <StatCard
-          title="Archived"
+          title={t.recordings.archived}
           value={status?.recordings.archived || 0}
           icon={<Archive className="w-6 h-6" />}
           color="default"
@@ -121,9 +143,9 @@ export default function Recordings() {
         <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
           <AlertTriangle className="w-6 h-6 text-red-600" />
           <div>
-            <p className="font-medium text-red-800">Disk space critical!</p>
+            <p className="font-medium text-red-800">{t.recordings.diskSpaceCritical}</p>
             <p className="text-sm text-red-600">
-              Usage is at {status.disk.usage_percent}%. Consider archiving or deleting old recordings.
+              {t.recordings.diskSpaceWarning.replace('{percent}', String(status.disk.usage_percent))}
             </p>
           </div>
         </div>
@@ -133,15 +155,15 @@ export default function Recordings() {
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-blue-50 rounded-lg p-4 text-center">
           <p className="text-2xl font-bold text-blue-700">{status?.recordings.by_type.continuous || 0}</p>
-          <p className="text-sm text-blue-600">Continuous</p>
+          <p className="text-sm text-blue-600">{t.recordings.continuous}</p>
         </div>
         <div className="bg-yellow-50 rounded-lg p-4 text-center">
           <p className="text-2xl font-bold text-yellow-700">{status?.recordings.by_type.event || 0}</p>
-          <p className="text-sm text-yellow-600">Event-triggered</p>
+          <p className="text-sm text-yellow-600">{t.recordings.eventTriggered}</p>
         </div>
         <div className="bg-purple-50 rounded-lg p-4 text-center">
           <p className="text-2xl font-bold text-purple-700">{status?.recordings.by_type.manual || 0}</p>
-          <p className="text-sm text-purple-600">Manual</p>
+          <p className="text-sm text-purple-600">{t.recordings.manual}</p>
         </div>
       </div>
 
@@ -151,7 +173,7 @@ export default function Recordings() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
-            placeholder="Search recordings..."
+            placeholder={t.recordings.searchRecordings}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
@@ -162,10 +184,10 @@ export default function Recordings() {
           onChange={(e) => setSegmentType(e.target.value)}
           className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
         >
-          <option value="">All Types</option>
-          <option value="continuous">Continuous</option>
-          <option value="event">Event-triggered</option>
-          <option value="manual">Manual</option>
+          <option value="">{t.recordings.allTypes}</option>
+          <option value="continuous">{t.recordings.continuous}</option>
+          <option value="event">{t.recordings.eventTriggered}</option>
+          <option value="manual">{t.recordings.manual}</option>
         </select>
       </div>
 
@@ -179,13 +201,13 @@ export default function Recordings() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stream</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Start Time</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Duration</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Size</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.recordings.stream}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.recordings.type}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.recordings.startTime}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.recordings.duration}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.recordings.size}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.streams.status}</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t.streams.actions}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -221,11 +243,11 @@ export default function Recordings() {
                     {recording.is_archived ? (
                       <span className="flex items-center gap-1 text-green-600">
                         <Archive className="w-4 h-4" />
-                        Archived
+                        {t.recordings.archived}
                       </span>
                     ) : recording.expires_at ? (
                       <span className="text-gray-500 text-sm">
-                        Expires {new Date(recording.expires_at).toLocaleDateString()}
+                        {t.recordings.expires} {new Date(recording.expires_at).toLocaleDateString()}
                       </span>
                     ) : (
                       <span className="text-gray-400">-</span>
@@ -234,12 +256,14 @@ export default function Recordings() {
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end gap-2">
                       <button
+                        onClick={() => alert('播放功能開發中')}
                         className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg"
                         title="Play"
                       >
                         <Play className="w-4 h-4" />
                       </button>
                       <button
+                        onClick={() => alert('下載功能開發中')}
                         className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
                         title="Download"
                       >
@@ -248,11 +272,15 @@ export default function Recordings() {
                       {!recording.is_archived && (
                         <button
                           onClick={() => archiveMutation.mutate(recording.id)}
-                          disabled={archiveMutation.isPending}
-                          className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg"
+                          disabled={archivingId === recording.id}
+                          className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg disabled:opacity-50"
                           title="Archive"
                         >
-                          <Archive className="w-4 h-4" />
+                          {archivingId === recording.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Archive className="w-4 h-4" />
+                          )}
                         </button>
                       )}
                     </div>
@@ -264,7 +292,7 @@ export default function Recordings() {
         ) : (
           <div className="flex flex-col items-center justify-center py-12">
             <Film className="w-12 h-12 text-gray-300 mb-4" />
-            <p className="text-gray-500">No recordings found</p>
+            <p className="text-gray-500">{t.recordings.noRecordingsFound}</p>
           </div>
         )}
       </Card>
@@ -272,7 +300,7 @@ export default function Recordings() {
       {/* Pagination Info */}
       {recordings && (
         <div className="text-sm text-gray-500">
-          Showing {filteredRecordings.length} of {recordings.total} recordings
+          {t.streams.showing} {filteredRecordings.length} {t.streams.of} {recordings.total} {t.recordings.title.toLowerCase()}
         </div>
       )}
     </div>

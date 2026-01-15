@@ -9,15 +9,19 @@ import {
   Activity,
   CheckCircle,
   XCircle,
+  Loader2,
 } from 'lucide-react'
 import Card from '../components/Card'
 import StatCard from '../components/StatCard'
 import { fleetApi } from '../services/api'
+import { useLanguage } from '../i18n/LanguageContext'
 import type { MediaMTXNode } from '../types'
 
 export default function Fleet() {
+  const { t } = useLanguage()
   const queryClient = useQueryClient()
   const [environment, setEnvironment] = useState<string>('')
+  const [syncingId, setSyncingId] = useState<number | null>(null)
 
   const { data: nodes, isLoading } = useQuery({
     queryKey: ['fleet-nodes', environment],
@@ -32,16 +36,30 @@ export default function Fleet() {
   })
 
   const syncMutation = useMutation({
-    mutationFn: (nodeId: number) => fleetApi.syncNode(nodeId),
-    onSuccess: () => {
+    mutationFn: (nodeId: number) => {
+      setSyncingId(nodeId)
+      return fleetApi.syncNode(nodeId)
+    },
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['fleet-nodes'] })
+      alert(`同步完成: ${data.synced} 個串流 (新增: ${data.created}, 更新: ${data.updated})`)
+    },
+    onError: (error) => {
+      alert(`同步失敗: ${error}`)
+    },
+    onSettled: () => {
+      setSyncingId(null)
     },
   })
 
   const syncAllMutation = useMutation({
     mutationFn: fleetApi.syncAll,
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['fleet-nodes'] })
+      alert(`全部同步完成: ${data.successful}/${data.total_nodes} 節點成功`)
+    },
+    onError: (error) => {
+      alert(`同步失敗: ${error}`)
     },
   })
 
@@ -50,21 +68,25 @@ export default function Fleet() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Fleet Management</h1>
-          <p className="text-gray-500 mt-1">Manage MediaMTX nodes across environments</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t.fleet.title}</h1>
+          <p className="text-gray-500 mt-1">{t.fleet.subtitle}</p>
         </div>
         <div className="flex gap-3">
           <button
             onClick={() => syncAllMutation.mutate()}
             disabled={syncAllMutation.isPending}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
           >
-            <RefreshCw className={`w-4 h-4 ${syncAllMutation.isPending ? 'animate-spin' : ''}`} />
-            Sync All
+            {syncAllMutation.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4" />
+            )}
+            {t.fleet.syncAll}
           </button>
           <button className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
             <Plus className="w-4 h-4" />
-            Add Node
+            {t.fleet.addNode}
           </button>
         </div>
       </div>
@@ -72,25 +94,25 @@ export default function Fleet() {
       {/* Overview Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <StatCard
-          title="Total Nodes"
+          title={t.fleet.totalNodes}
           value={overview?.nodes?.total || 0}
           icon={<Server className="w-6 h-6" />}
           color="default"
         />
         <StatCard
-          title="Production"
+          title={t.fleet.production}
           value={overview?.nodes?.by_environment?.production || 0}
           icon={<Activity className="w-6 h-6" />}
           color="success"
         />
         <StatCard
-          title="Staging"
+          title={t.fleet.staging}
           value={overview?.nodes?.by_environment?.staging || 0}
           icon={<Activity className="w-6 h-6" />}
           color="warning"
         />
         <StatCard
-          title="Development"
+          title={t.fleet.development}
           value={overview?.nodes?.by_environment?.development || 0}
           icon={<Activity className="w-6 h-6" />}
           color="default"
@@ -104,10 +126,10 @@ export default function Fleet() {
           onChange={(e) => setEnvironment(e.target.value)}
           className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
         >
-          <option value="">All Environments</option>
-          <option value="production">Production</option>
-          <option value="staging">Staging</option>
-          <option value="development">Development</option>
+          <option value="">{t.fleet.allEnvironments}</option>
+          <option value="production">{t.fleet.production}</option>
+          <option value="staging">{t.fleet.staging}</option>
+          <option value="development">{t.fleet.development}</option>
         </select>
       </div>
 
@@ -144,15 +166,15 @@ export default function Fleet() {
                 <div className="grid grid-cols-3 gap-4 mb-4">
                   <div className="text-center">
                     <p className="text-2xl font-bold text-gray-900">{node.stream_count}</p>
-                    <p className="text-xs text-gray-500">Streams</p>
+                    <p className="text-xs text-gray-500">{t.fleet.streams}</p>
                   </div>
                   <div className="text-center">
                     <p className="text-2xl font-bold text-green-600">{node.healthy_streams}</p>
-                    <p className="text-xs text-gray-500">Healthy</p>
+                    <p className="text-xs text-gray-500">{t.fleet.healthy}</p>
                   </div>
                   <div className="text-center">
                     <p className="text-2xl font-bold text-red-600">{node.unhealthy_streams}</p>
-                    <p className="text-xs text-gray-500">Unhealthy</p>
+                    <p className="text-xs text-gray-500">{t.fleet.unhealthy}</p>
                   </div>
                 </div>
 
@@ -165,13 +187,13 @@ export default function Fleet() {
                       <XCircle className="w-4 h-4 text-red-500" />
                     )}
                     <span className={node.is_active ? 'text-green-600' : 'text-red-600'}>
-                      {node.is_active ? 'Online' : 'Offline'}
+                      {node.is_active ? t.fleet.online : t.fleet.offline}
                     </span>
                   </div>
                   <span className="text-gray-400">
                     {node.last_seen
-                      ? `Last seen: ${new Date(node.last_seen).toLocaleTimeString()}`
-                      : 'Never seen'}
+                      ? `${t.fleet.lastSeen}: ${new Date(node.last_seen).toLocaleTimeString()}`
+                      : t.fleet.neverSeen}
                   </span>
                 </div>
               </div>
@@ -180,19 +202,25 @@ export default function Fleet() {
               <div className="border-t border-gray-100 px-6 py-3 flex justify-end gap-2">
                 <button
                   onClick={() => syncMutation.mutate(node.id)}
-                  disabled={syncMutation.isPending}
-                  className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg"
+                  disabled={syncingId === node.id}
+                  className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg disabled:opacity-50"
                   title="Sync Streams"
                 >
-                  <RefreshCw className={`w-4 h-4 ${syncMutation.isPending ? 'animate-spin' : ''}`} />
+                  {syncingId === node.id ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4" />
+                  )}
                 </button>
                 <button
+                  onClick={() => alert(`設定節點 ${node.name} (功能開發中)`)}
                   className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
                   title="Settings"
                 >
                   <Settings className="w-4 h-4" />
                 </button>
                 <button
+                  onClick={() => alert(`刪除節點 ${node.name} (功能開發中)`)}
                   className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
                   title="Remove"
                 >
@@ -203,9 +231,12 @@ export default function Fleet() {
           ))}
 
           {/* Add Node Card */}
-          <button className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-primary-400 hover:bg-primary-50 transition-colors">
+          <button
+            onClick={() => alert('新增節點功能開發中')}
+            className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-primary-400 hover:bg-primary-50 transition-colors"
+          >
             <Plus className="w-8 h-8 text-gray-400 mb-2" />
-            <span className="text-gray-600 font-medium">Add New Node</span>
+            <span className="text-gray-600 font-medium">{t.fleet.addNewNode}</span>
           </button>
         </div>
       )}

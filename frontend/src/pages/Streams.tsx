@@ -8,16 +8,21 @@ import {
   Plus,
   Search,
   Wrench,
+  Loader2,
 } from 'lucide-react'
 import Card from '../components/Card'
 import StatusBadge from '../components/StatusBadge'
 import { streamsApi, healthApi } from '../services/api'
+import { useLanguage } from '../i18n/LanguageContext'
 import type { Stream, StreamStatus } from '../types'
 
 export default function Streams() {
+  const { t } = useLanguage()
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StreamStatus | ''>('')
+  const [probingId, setProbingId] = useState<number | null>(null)
+  const [remediatingId, setRemediatingId] = useState<number | null>(null)
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['streams', statusFilter],
@@ -26,16 +31,36 @@ export default function Streams() {
   })
 
   const probeMutation = useMutation({
-    mutationFn: (streamId: number) => healthApi.probeStream(streamId),
-    onSuccess: () => {
+    mutationFn: (streamId: number) => {
+      setProbingId(streamId)
+      return healthApi.probeStream(streamId)
+    },
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['streams'] })
+      alert(`Probe 完成: ${data.status} - FPS: ${data.fps || 'N/A'}`)
+    },
+    onError: (error) => {
+      alert(`Probe 失敗: ${error}`)
+    },
+    onSettled: () => {
+      setProbingId(null)
     },
   })
 
   const remediateMutation = useMutation({
-    mutationFn: (streamId: number) => streamsApi.remediate(streamId),
-    onSuccess: () => {
+    mutationFn: (streamId: number) => {
+      setRemediatingId(streamId)
+      return streamsApi.remediate(streamId)
+    },
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['streams'] })
+      alert(`修復${data.success ? '成功' : '失敗'}: ${data.total_attempts} 次嘗試`)
+    },
+    onError: (error) => {
+      alert(`修復失敗: ${error}`)
+    },
+    onSettled: () => {
+      setRemediatingId(null)
     },
   })
 
@@ -49,8 +74,8 @@ export default function Streams() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Streams</h1>
-          <p className="text-gray-500 mt-1">Monitor and manage stream health</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t.streams.title}</h1>
+          <p className="text-gray-500 mt-1">{t.streams.subtitle}</p>
         </div>
         <div className="flex gap-3">
           <button
@@ -58,11 +83,11 @@ export default function Streams() {
             className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
           >
             <RefreshCw className="w-4 h-4" />
-            Refresh
+            {t.streams.refresh}
           </button>
           <button className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
             <Plus className="w-4 h-4" />
-            Add Stream
+            {t.streams.addStream}
           </button>
         </div>
       </div>
@@ -73,7 +98,7 @@ export default function Streams() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
             type="text"
-            placeholder="Search streams..."
+            placeholder={t.streams.searchStreams}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
@@ -84,11 +109,11 @@ export default function Streams() {
           onChange={(e) => setStatusFilter(e.target.value as StreamStatus | '')}
           className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
         >
-          <option value="">All Status</option>
-          <option value="healthy">Healthy</option>
-          <option value="degraded">Degraded</option>
-          <option value="unhealthy">Unhealthy</option>
-          <option value="unknown">Unknown</option>
+          <option value="">{t.streams.allStatus}</option>
+          <option value="healthy">{t.streams.healthy}</option>
+          <option value="degraded">{t.streams.degraded}</option>
+          <option value="unhealthy">{t.streams.unhealthy}</option>
+          <option value="unknown">{t.streams.unknown}</option>
         </select>
       </div>
 
@@ -102,13 +127,13 @@ export default function Streams() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stream</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">FPS</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bitrate</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Latency</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last Check</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.streams.stream}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.streams.status}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.streams.fps}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.streams.bitrate}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.streams.latency}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.streams.lastCheck}</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t.streams.actions}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -140,30 +165,38 @@ export default function Streams() {
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {stream.last_check
                       ? new Date(stream.last_check).toLocaleTimeString()
-                      : 'Never'}
+                      : t.streams.never}
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => probeMutation.mutate(stream.id)}
-                        disabled={probeMutation.isPending}
-                        className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg"
+                        disabled={probingId === stream.id}
+                        className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg disabled:opacity-50"
                         title="Probe Stream"
                       >
-                        <Play className="w-4 h-4" />
+                        {probingId === stream.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Play className="w-4 h-4" />
+                        )}
                       </button>
-                      {stream.status === 'unhealthy' && stream.auto_remediate && (
+                      {stream.auto_remediate && (
                         <button
                           onClick={() => remediateMutation.mutate(stream.id)}
-                          disabled={remediateMutation.isPending}
-                          className="p-2 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg"
+                          disabled={remediatingId === stream.id}
+                          className="p-2 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg disabled:opacity-50"
                           title="Remediate"
                         >
-                          <Wrench className="w-4 h-4" />
+                          {remediatingId === stream.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Wrench className="w-4 h-4" />
+                          )}
                         </button>
                       )}
                       <button
-                        onClick={() => console.log('Settings for', stream.path)}
+                        onClick={() => alert(`設定 ${stream.path} (功能開發中)`)}
                         className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
                         title="Settings"
                       >
@@ -178,7 +211,7 @@ export default function Streams() {
         ) : (
           <div className="flex flex-col items-center justify-center py-12">
             <Radio className="w-12 h-12 text-gray-300 mb-4" />
-            <p className="text-gray-500">No streams found</p>
+            <p className="text-gray-500">{t.streams.noStreamsFound}</p>
           </div>
         )}
       </Card>
@@ -186,7 +219,7 @@ export default function Streams() {
       {/* Summary */}
       {data && (
         <div className="text-sm text-gray-500">
-          Showing {filteredStreams.length} of {data.total} streams
+          {t.streams.showing} {filteredStreams.length} {t.streams.of} {data.total} streams
         </div>
       )}
     </div>

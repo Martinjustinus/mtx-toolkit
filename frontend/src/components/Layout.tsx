@@ -10,22 +10,25 @@ import {
   Activity,
 } from 'lucide-react'
 import clsx from 'clsx'
+import { useLanguage } from '../i18n/LanguageContext'
+import LanguageSwitcher from './LanguageSwitcher'
 
 interface LayoutProps {
   children: ReactNode
 }
 
 const navItems = [
-  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/streams', label: 'Streams', icon: Radio },
-  { path: '/fleet', label: 'Fleet', icon: Server },
-  { path: '/config', label: 'Config', icon: Settings },
-  { path: '/recordings', label: 'Recordings', icon: Film },
-  { path: '/testing', label: 'Testing', icon: FlaskConical },
+  { path: '/dashboard', labelKey: 'dashboard' as const, icon: LayoutDashboard },
+  { path: '/streams', labelKey: 'streams' as const, icon: Radio },
+  { path: '/fleet', labelKey: 'fleet' as const, icon: Server },
+  { path: '/config', labelKey: 'config' as const, icon: Settings },
+  { path: '/recordings', labelKey: 'recordings' as const, icon: Film },
+  { path: '/testing', labelKey: 'testing' as const, icon: FlaskConical },
 ]
 
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation()
+  const { t } = useLanguage()
 
   return (
     <div className="min-h-screen flex">
@@ -60,13 +63,18 @@ export default function Layout({ children }: LayoutProps) {
                     )}
                   >
                     <Icon className="w-5 h-5" />
-                    <span>{item.label}</span>
+                    <span>{t.nav[item.labelKey]}</span>
                   </Link>
                 </li>
               )
             })}
           </ul>
         </nav>
+
+        {/* Language Switcher */}
+        <div className="p-4 border-t border-slate-700">
+          <LanguageSwitcher />
+        </div>
 
         {/* Footer */}
         <div className="p-4 border-t border-slate-700 text-xs text-slate-400">

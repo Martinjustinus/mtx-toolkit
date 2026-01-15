@@ -13,10 +13,12 @@ import StatCard from '../components/StatCard'
 import Card from '../components/Card'
 import StatusBadge from '../components/StatusBadge'
 import { dashboardApi } from '../services/api'
+import { useLanguage } from '../i18n/LanguageContext'
 import type { StreamEvent } from '../types'
 
 
 export default function Dashboard() {
+  const { t } = useLanguage()
   const { data: overview, isLoading: overviewLoading } = useQuery({
     queryKey: ['dashboard-overview'],
     queryFn: dashboardApi.getOverview,
@@ -54,38 +56,38 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-500 mt-1">Stream reliability overview</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t.dashboard.title}</h1>
+          <p className="text-gray-500 mt-1">{t.dashboard.subtitle}</p>
         </div>
         <div className="text-sm text-gray-500">
-          Last updated: {overview?.timestamp ? new Date(overview.timestamp).toLocaleTimeString() : '-'}
+          {t.dashboard.lastUpdated}: {overview?.timestamp ? new Date(overview.timestamp).toLocaleTimeString() : '-'}
         </div>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
-          title="Total Streams"
+          title={t.dashboard.totalStreams}
           value={overview?.streams.total || 0}
-          subtitle={`${overview?.streams.health_rate || 0}% healthy`}
+          subtitle={`${overview?.streams.health_rate || 0}% ${t.dashboard.healthy}`}
           icon={<Radio className="w-6 h-6" />}
           color="default"
         />
         <StatCard
-          title="Active Nodes"
+          title={t.dashboard.activeNodes}
           value={overview?.nodes.total || 0}
           icon={<Server className="w-6 h-6" />}
           color="success"
         />
         <StatCard
-          title="Active Alerts"
+          title={t.dashboard.activeAlerts}
           value={alerts?.total || 0}
-          subtitle={`${alerts?.by_severity?.critical || 0} critical`}
+          subtitle={`${alerts?.by_severity?.critical || 0} ${t.dashboard.critical}`}
           icon={<AlertTriangle className="w-6 h-6" />}
           color={alerts?.by_severity?.critical > 0 ? 'danger' : 'warning'}
         />
         <StatCard
-          title="Recordings Today"
+          title={t.dashboard.recordingsToday}
           value={overview?.recordings.today || 0}
           subtitle={`${overview?.recordings.total_size_gb || 0} GB total`}
           icon={<Film className="w-6 h-6" />}
@@ -96,7 +98,7 @@ export default function Dashboard() {
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Stream Health Chart */}
-        <Card title="Stream Health" className="lg:col-span-1">
+        <Card title={t.dashboard.streamHealth} className="lg:col-span-1">
           <div className="h-64 flex items-center justify-center">
             {(overview?.streams?.total ?? 0) > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -118,7 +120,7 @@ export default function Dashboard() {
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-gray-500">No streams configured</p>
+              <p className="text-gray-500">{t.dashboard.noStreamsConfigured}</p>
             )}
           </div>
           <div className="flex justify-center gap-6 mt-4">
@@ -137,7 +139,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Recent Events */}
-        <Card title="Recent Events" className="lg:col-span-2" padding="none">
+        <Card title={t.dashboard.recentEvents} className="lg:col-span-2" padding="none">
           <div className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
             {(events?.events?.length ?? 0) > 0 ? (
               events?.events?.map((event: StreamEvent) => (
@@ -167,7 +169,7 @@ export default function Dashboard() {
               ))
             ) : (
               <div className="px-6 py-8 text-center text-gray-500">
-                No recent events
+                {t.dashboard.noRecentEvents}
               </div>
             )}
           </div>
