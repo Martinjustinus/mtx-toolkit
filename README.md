@@ -7,8 +7,10 @@ MediaMTX 串流可靠性管理工具箱，提供企業級的串流監控、自�
 - **E2E 健康檢查** - 使用 ffprobe 實際拉流檢測，支援黑屏/凍結、FPS 掉落、延遲等問題偵測
 - **自動修復** - 斷線分級重試 (exponential backoff + jitter)，自動重啟異常串流
 - **Config-as-Code** - 類似 Terraform 的 plan/apply 工作流程，支援 diff、驗證、備份、回滾
-- **Fleet 管理** - 多台 MediaMTX 節點統一管理，支援跨環境 (dev/staging/prod)
-- **錄影管理** - 事件分段錄影、磁碟水位保護、自動清理與歸檔
+- **Fleet 管理** - 多台 MediaMTX 節點統一管理，支援新增/編輯/刪除，跨環境 (dev/staging/prod)
+- **串流管理** - 完整 CRUD 操作，支援新增/編輯/刪除串流
+- **錄影管理** - 事件分段錄影、線上播放、下載、磁碟水位保護、自動清理與歸檔
+- **整合測試** - 預設測試場景、壓力測試、故障注入
 - **中英文介面** - 支援繁體中文與英文切換
 
 ## 技術架構
@@ -91,6 +93,9 @@ curl -X POST http://localhost:5002/api/fleet/nodes/1/sync
 
 | 功能 | 說明 |
 |------|------|
+| 新增串流 | 點擊 Add Stream 按鈕，填寫串流路徑、名稱、來源 URL |
+| 編輯串流 | 點擊設定圖示，修改串流資訊 |
+| 刪除串流 | 點擊刪除圖示，確認後刪除 |
 | Probe | 立即檢測串流健康狀態 (FPS、解析度、編碼等) |
 | Remediate | 嘗試修復異常串流 |
 | 篩選 | 依狀態篩選：Healthy / Degraded / Unhealthy / Unknown |
@@ -99,6 +104,9 @@ curl -X POST http://localhost:5002/api/fleet/nodes/1/sync
 
 | 功能 | 說明 |
 |------|------|
+| 新增節點 | 點擊 Add Node 按鈕，填寫節點名稱、API URL、RTSP URL、環境 |
+| 編輯節點 | 點擊設定圖示，修改節點資訊 |
+| 刪除節點 | 點擊刪除圖示，確認後刪除 |
 | Sync | 同步單一節點的串流資料 |
 | Sync All | 同步所有節點 |
 | 環境篩選 | Production / Staging / Development |
@@ -126,15 +134,23 @@ paths:
 
 | 功能 | 說明 |
 |------|------|
-| Run Cleanup | 執行磁碟清理，刪除過期錄影 |
+| 播放 | 點擊播放圖示，在 Modal 中觀看錄影 |
+| 下載 | 點擊下載圖示，下載錄影檔案 |
 | Archive | 歸檔重要錄影，防止被自動清理 |
+| Run Cleanup | 執行磁碟清理，刪除過期錄影 |
+| 篩選 | 依類型篩選：Continuous / Event-triggered / Manual |
 
 ### Testing 測試工具
 
 | 功能 | 說明 |
 |------|------|
-| Stream Probe | 輸入任意 URL 進行健康檢測 |
-| Test Scenarios | 預設測試場景 (testsrc、黑屏、靜音等) |
+| Stream Probe | 輸入任意 URL 進行健康檢測，支援 RTSP/RTMP/HLS/WebRTC |
+| Test Scenarios | 預設測試場景 (testsrc、黑屏、靜音、低 FPS 等) |
+| Start/Stop | 啟動或停止測試場景 |
+| Copy | 複製 ffmpeg 指令到剪貼簿 |
+| Integration Test | 執行完整整合測試 |
+| Stress Test | 執行壓力測試，模擬多串流負載 |
+| Fault Injection | 故障注入測試 (封包遺失、延遲、斷線等) |
 
 ## API 參考
 

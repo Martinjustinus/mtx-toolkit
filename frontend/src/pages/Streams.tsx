@@ -9,12 +9,30 @@ import {
   Search,
   Wrench,
   Loader2,
+  Trash2,
 } from 'lucide-react'
 import Card from '../components/Card'
+import Modal from '../components/Modal'
 import StatusBadge from '../components/StatusBadge'
-import { streamsApi, healthApi } from '../services/api'
+import { streamsApi, healthApi, fleetApi } from '../services/api'
 import { useLanguage } from '../i18n/LanguageContext'
-import type { Stream, StreamStatus } from '../types'
+import type { Stream, StreamStatus, MediaMTXNode } from '../types'
+
+interface StreamFormData {
+  path: string
+  name: string
+  source_url: string
+  node_id: number | null
+  auto_remediate: boolean
+}
+
+const initialFormData: StreamFormData = {
+  path: '',
+  name: '',
+  source_url: '',
+  node_id: null,
+  auto_remediate: true,
+}
 
 export default function Streams() {
   const { t } = useLanguage()
@@ -24,10 +42,22 @@ export default function Streams() {
   const [probingId, setProbingId] = useState<number | null>(null)
   const [remediatingId, setRemediatingId] = useState<number | null>(null)
 
+  // Modal states
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [selectedStream, setSelectedStream] = useState<Stream | null>(null)
+  const [formData, setFormData] = useState<StreamFormData>(initialFormData)
+
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['streams', statusFilter],
     queryFn: () => streamsApi.list({ status: statusFilter || undefined }),
     refetchInterval: 30000,
+  })
+
+  const { data: nodesData } = useQuery({
+    queryKey: ['fleet-nodes'],
+    queryFn: () => fleetApi.listNodes(),
   })
 
   const probeMutation = useMutation({
@@ -64,10 +94,96 @@ export default function Streams() {
     },
   })
 
+  const createMutation = useMutation({
+    mutationFn: (data: StreamFormData) => streamsApi.create({
+      ...data,
+      node_id: data.node_id ?? undefined,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['streams'] })
+      setIsAddModalOpen(false)
+      setFormData(initialFormData)
+      alert(t.streams.streamAdded)
+    },
+    onError: (error) => {
+      alert(`新增失敗: ${error}`)
+    },
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: StreamFormData }) => streamsApi.update(id, {
+      ...data,
+      node_id: data.node_id ?? undefined,
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['streams'] })
+      setIsEditModalOpen(false)
+      setSelectedStream(null)
+      setFormData(initialFormData)
+      alert(t.streams.streamUpdated)
+    },
+    onError: (error) => {
+      alert(`更新失敗: ${error}`)
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => streamsApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['streams'] })
+      setIsDeleteModalOpen(false)
+      setSelectedStream(null)
+      alert(t.streams.streamDeleted)
+    },
+    onError: (error) => {
+      alert(`刪除失敗: ${error}`)
+    },
+  })
+
   const filteredStreams = data?.streams?.filter((stream: Stream) =>
     stream.path.toLowerCase().includes(search.toLowerCase()) ||
     stream.name?.toLowerCase().includes(search.toLowerCase())
   ) || []
+
+  const handleOpenAddModal = () => {
+    setFormData(initialFormData)
+    setIsAddModalOpen(true)
+  }
+
+  const handleOpenEditModal = (stream: Stream) => {
+    setSelectedStream(stream)
+    setFormData({
+      path: stream.path,
+      name: stream.name || '',
+      source_url: stream.source_url || '',
+      node_id: stream.node_id,
+      auto_remediate: stream.auto_remediate,
+    })
+    setIsEditModalOpen(true)
+  }
+
+  const handleOpenDeleteModal = (stream: Stream) => {
+    setSelectedStream(stream)
+    setIsDeleteModalOpen(true)
+  }
+
+  const handleSubmitAdd = (e: React.FormEvent) => {
+    e.preventDefault()
+    createMutation.mutate(formData)
+  }
+
+  const handleSubmitEdit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (selectedStream) {
+      updateMutation.mutate({ id: selectedStream.id, data: formData })
+    }
+  }
+
+  const handleConfirmDelete = () => {
+    if (selectedStream) {
+      deleteMutation.mutate(selectedStream.id)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -85,7 +201,10 @@ export default function Streams() {
             <RefreshCw className="w-4 h-4" />
             {t.streams.refresh}
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+          <button
+            onClick={handleOpenAddModal}
+            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+          >
             <Plus className="w-4 h-4" />
             {t.streams.addStream}
           </button>
@@ -196,11 +315,18 @@ export default function Streams() {
                         </button>
                       )}
                       <button
-                        onClick={() => alert(`設定 ${stream.path} (功能開發中)`)}
+                        onClick={() => handleOpenEditModal(stream)}
                         className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
                         title="Settings"
                       >
                         <Settings className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleOpenDeleteModal(stream)}
+                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </td>
@@ -222,6 +348,228 @@ export default function Streams() {
           {t.streams.showing} {filteredStreams.length} {t.streams.of} {data.total} streams
         </div>
       )}
+
+      {/* Add Stream Modal */}
+      <Modal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        title={t.streams.addStream}
+      >
+        <form onSubmit={handleSubmitAdd} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t.streams.streamPath} *
+            </label>
+            <input
+              type="text"
+              value={formData.path}
+              onChange={(e) => setFormData({ ...formData, path: e.target.value })}
+              required
+              placeholder="cam1"
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t.streams.streamName}
+            </label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="Camera 1"
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t.streams.sourceUrl}
+            </label>
+            <input
+              type="text"
+              value={formData.source_url}
+              onChange={(e) => setFormData({ ...formData, source_url: e.target.value })}
+              placeholder="rtsp://user:pass@192.168.1.100:554/stream"
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t.streams.selectNode}
+            </label>
+            <select
+              value={formData.node_id || ''}
+              onChange={(e) => setFormData({ ...formData, node_id: e.target.value ? Number(e.target.value) : null })}
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="">-- {t.streams.selectNode} --</option>
+              {nodesData?.nodes?.map((node: MediaMTXNode) => (
+                <option key={node.id} value={node.id}>
+                  {node.name} ({node.environment})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="auto_remediate"
+              checked={formData.auto_remediate}
+              onChange={(e) => setFormData({ ...formData, auto_remediate: e.target.checked })}
+              className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+            />
+            <label htmlFor="auto_remediate" className="text-sm text-gray-700">
+              {t.streams.autoRemediate}
+            </label>
+          </div>
+          <div className="flex justify-end gap-3 pt-4">
+            <button
+              type="button"
+              onClick={() => setIsAddModalOpen(false)}
+              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+            >
+              {t.common.cancel}
+            </button>
+            <button
+              type="submit"
+              disabled={createMutation.isPending}
+              className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+            >
+              {createMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+              {t.common.save}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Edit Stream Modal */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        title={t.streams.editStream}
+      >
+        <form onSubmit={handleSubmitEdit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t.streams.streamPath} *
+            </label>
+            <input
+              type="text"
+              value={formData.path}
+              onChange={(e) => setFormData({ ...formData, path: e.target.value })}
+              required
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t.streams.streamName}
+            </label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t.streams.sourceUrl}
+            </label>
+            <input
+              type="text"
+              value={formData.source_url}
+              onChange={(e) => setFormData({ ...formData, source_url: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t.streams.selectNode}
+            </label>
+            <select
+              value={formData.node_id || ''}
+              onChange={(e) => setFormData({ ...formData, node_id: e.target.value ? Number(e.target.value) : null })}
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="">-- {t.streams.selectNode} --</option>
+              {nodesData?.nodes?.map((node: MediaMTXNode) => (
+                <option key={node.id} value={node.id}>
+                  {node.name} ({node.environment})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="auto_remediate_edit"
+              checked={formData.auto_remediate}
+              onChange={(e) => setFormData({ ...formData, auto_remediate: e.target.checked })}
+              className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+            />
+            <label htmlFor="auto_remediate_edit" className="text-sm text-gray-700">
+              {t.streams.autoRemediate}
+            </label>
+          </div>
+          <div className="flex justify-end gap-3 pt-4">
+            <button
+              type="button"
+              onClick={() => setIsEditModalOpen(false)}
+              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+            >
+              {t.common.cancel}
+            </button>
+            <button
+              type="submit"
+              disabled={updateMutation.isPending}
+              className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+            >
+              {updateMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+              {t.common.save}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        title={t.streams.deleteStream}
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-gray-600">
+            {t.streams.confirmDeleteStream}
+          </p>
+          {selectedStream && (
+            <div className="p-3 bg-gray-50 rounded-lg">
+              <p className="font-medium text-gray-900">{selectedStream.path}</p>
+              {selectedStream.name && (
+                <p className="text-sm text-gray-500">{selectedStream.name}</p>
+              )}
+            </div>
+          )}
+          <div className="flex justify-end gap-3 pt-4">
+            <button
+              type="button"
+              onClick={() => setIsDeleteModalOpen(false)}
+              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+            >
+              {t.common.cancel}
+            </button>
+            <button
+              onClick={handleConfirmDelete}
+              disabled={deleteMutation.isPending}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+            >
+              {deleteMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+              {t.common.delete}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

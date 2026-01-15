@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import Card from '../components/Card'
 import StatCard from '../components/StatCard'
+import Modal from '../components/Modal'
 import { recordingsApi } from '../services/api'
 import { useLanguage } from '../i18n/LanguageContext'
 import type { Recording } from '../types'
@@ -24,6 +25,13 @@ export default function Recordings() {
   const [search, setSearch] = useState('')
   const [segmentType, setSegmentType] = useState('')
   const [archivingId, setArchivingId] = useState<number | null>(null)
+  const [downloadingId, setDownloadingId] = useState<number | null>(null)
+
+  // Player modal state
+  const [isPlayerOpen, setIsPlayerOpen] = useState(false)
+  const [selectedRecording, setSelectedRecording] = useState<Recording | null>(null)
+  const [playbackUrl, setPlaybackUrl] = useState<string | null>(null)
+  const [loadingPlayback, setLoadingPlayback] = useState(false)
 
   const { data: recordings, isLoading } = useQuery({
     queryKey: ['recordings', segmentType],
@@ -85,6 +93,51 @@ export default function Recordings() {
     const s = seconds % 60
     if (h > 0) return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
     return `${m}:${s.toString().padStart(2, '0')}`
+  }
+
+  const handlePlay = async (recording: Recording) => {
+    setSelectedRecording(recording)
+    setLoadingPlayback(true)
+    setIsPlayerOpen(true)
+
+    try {
+      const data = await recordingsApi.getPlaybackUrl(recording.id)
+      setPlaybackUrl(data.url || `/api/recordings/playback/${recording.id}/stream`)
+    } catch (error) {
+      alert(`無法取得播放連結: ${error}`)
+      setIsPlayerOpen(false)
+    } finally {
+      setLoadingPlayback(false)
+    }
+  }
+
+  const handleDownload = async (recording: Recording) => {
+    setDownloadingId(recording.id)
+    try {
+      // Get playback URL and use it for download
+      const data = await recordingsApi.getPlaybackUrl(recording.id)
+      const downloadUrl = data.download_url || `/api/recordings/${recording.id}/download`
+
+      // Create a temporary link to trigger download
+      const link = document.createElement('a')
+      link.href = downloadUrl
+      link.download = recording.file_path.split('/').pop() || `recording_${recording.id}.mp4`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      alert('下載已開始')
+    } catch (error) {
+      alert(`下載失敗: ${error}`)
+    } finally {
+      setDownloadingId(null)
+    }
+  }
+
+  const handleClosePlayer = () => {
+    setIsPlayerOpen(false)
+    setSelectedRecording(null)
+    setPlaybackUrl(null)
   }
 
   return (
@@ -256,18 +309,23 @@ export default function Recordings() {
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end gap-2">
                       <button
-                        onClick={() => alert('播放功能開發中')}
+                        onClick={() => handlePlay(recording)}
                         className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg"
                         title="Play"
                       >
                         <Play className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => alert('下載功能開發中')}
-                        className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
+                        onClick={() => handleDownload(recording)}
+                        disabled={downloadingId === recording.id}
+                        className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-50"
                         title="Download"
                       >
-                        <Download className="w-4 h-4" />
+                        {downloadingId === recording.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Download className="w-4 h-4" />
+                        )}
                       </button>
                       {!recording.is_archived && (
                         <button
@@ -303,6 +361,81 @@ export default function Recordings() {
           {t.streams.showing} {filteredRecordings.length} {t.streams.of} {recordings.total} {t.recordings.title.toLowerCase()}
         </div>
       )}
+
+      {/* Video Player Modal */}
+      <Modal
+        isOpen={isPlayerOpen}
+        onClose={handleClosePlayer}
+        title={selectedRecording?.stream_path || 'Video Player'}
+        size="xl"
+      >
+        <div className="space-y-4">
+          {loadingPlayback ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+            </div>
+          ) : playbackUrl ? (
+            <div className="relative bg-black rounded-lg overflow-hidden">
+              <video
+                src={playbackUrl}
+                controls
+                autoPlay
+                className="w-full aspect-video"
+              >
+                Your browser does not support the video tag.
+              </video>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center py-12 text-gray-500">
+              無法載入影片
+            </div>
+          )}
+
+          {selectedRecording && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <p className="text-gray-500">{t.recordings.startTime}</p>
+                <p className="font-medium">{new Date(selectedRecording.start_time).toLocaleString()}</p>
+              </div>
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <p className="text-gray-500">{t.recordings.duration}</p>
+                <p className="font-medium">{formatDuration(selectedRecording.duration_seconds)}</p>
+              </div>
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <p className="text-gray-500">{t.recordings.size}</p>
+                <p className="font-medium">{formatSize(selectedRecording.file_size)}</p>
+              </div>
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <p className="text-gray-500">{t.recordings.type}</p>
+                <p className="font-medium">{selectedRecording.segment_type}</p>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3">
+            {selectedRecording && (
+              <button
+                onClick={() => handleDownload(selectedRecording)}
+                disabled={downloadingId === selectedRecording.id}
+                className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+              >
+                {downloadingId === selectedRecording.id ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                Download
+              </button>
+            )}
+            <button
+              onClick={handleClosePlayer}
+              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+            >
+              {t.common.cancel}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

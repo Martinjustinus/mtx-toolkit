@@ -13,15 +13,37 @@ import {
 } from 'lucide-react'
 import Card from '../components/Card'
 import StatCard from '../components/StatCard'
+import Modal from '../components/Modal'
 import { fleetApi } from '../services/api'
 import { useLanguage } from '../i18n/LanguageContext'
 import type { MediaMTXNode } from '../types'
+
+interface NodeFormData {
+  name: string
+  api_url: string
+  rtsp_url: string
+  environment: string
+}
+
+const initialFormData: NodeFormData = {
+  name: '',
+  api_url: '',
+  rtsp_url: '',
+  environment: 'production',
+}
 
 export default function Fleet() {
   const { t } = useLanguage()
   const queryClient = useQueryClient()
   const [environment, setEnvironment] = useState<string>('')
   const [syncingId, setSyncingId] = useState<number | null>(null)
+
+  // Modal states
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [selectedNode, setSelectedNode] = useState<MediaMTXNode | null>(null)
+  const [formData, setFormData] = useState<NodeFormData>(initialFormData)
 
   const { data: nodes, isLoading } = useQuery({
     queryKey: ['fleet-nodes', environment],
@@ -42,7 +64,11 @@ export default function Fleet() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['fleet-nodes'] })
-      alert(`同步完成: ${data.synced} 個串流 (新增: ${data.created}, 更新: ${data.updated})`)
+      if (data.success) {
+        alert(`同步完成: ${data.synced} 個串流 (新增: ${data.created}, 更新: ${data.updated})`)
+      } else {
+        alert(`同步失敗: ${data.error || '未知錯誤'}`)
+      }
     },
     onError: (error) => {
       alert(`同步失敗: ${error}`)
@@ -62,6 +88,93 @@ export default function Fleet() {
       alert(`同步失敗: ${error}`)
     },
   })
+
+  const createMutation = useMutation({
+    mutationFn: (data: NodeFormData) => fleetApi.createNode({
+      ...data,
+      environment: data.environment as 'development' | 'staging' | 'production',
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['fleet-nodes'] })
+      queryClient.invalidateQueries({ queryKey: ['fleet-overview'] })
+      setIsAddModalOpen(false)
+      setFormData(initialFormData)
+      alert(t.fleet.nodeAdded)
+    },
+    onError: (error) => {
+      alert(`新增失敗: ${error}`)
+    },
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: NodeFormData }) => fleetApi.updateNode(id, {
+      ...data,
+      environment: data.environment as 'development' | 'staging' | 'production',
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['fleet-nodes'] })
+      setIsEditModalOpen(false)
+      setSelectedNode(null)
+      setFormData(initialFormData)
+      alert(t.fleet.nodeUpdated)
+    },
+    onError: (error) => {
+      alert(`更新失敗: ${error}`)
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => fleetApi.deleteNode(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['fleet-nodes'] })
+      queryClient.invalidateQueries({ queryKey: ['fleet-overview'] })
+      setIsDeleteModalOpen(false)
+      setSelectedNode(null)
+      alert(t.fleet.nodeDeleted)
+    },
+    onError: (error) => {
+      alert(`刪除失敗: ${error}`)
+    },
+  })
+
+  const handleOpenAddModal = () => {
+    setFormData(initialFormData)
+    setIsAddModalOpen(true)
+  }
+
+  const handleOpenEditModal = (node: MediaMTXNode) => {
+    setSelectedNode(node)
+    setFormData({
+      name: node.name,
+      api_url: node.api_url,
+      rtsp_url: node.rtsp_url || '',
+      environment: node.environment,
+    })
+    setIsEditModalOpen(true)
+  }
+
+  const handleOpenDeleteModal = (node: MediaMTXNode) => {
+    setSelectedNode(node)
+    setIsDeleteModalOpen(true)
+  }
+
+  const handleSubmitAdd = (e: React.FormEvent) => {
+    e.preventDefault()
+    createMutation.mutate(formData)
+  }
+
+  const handleSubmitEdit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (selectedNode) {
+      updateMutation.mutate({ id: selectedNode.id, data: formData })
+    }
+  }
+
+  const handleConfirmDelete = () => {
+    if (selectedNode) {
+      deleteMutation.mutate(selectedNode.id)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -84,7 +197,10 @@ export default function Fleet() {
             )}
             {t.fleet.syncAll}
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+          <button
+            onClick={handleOpenAddModal}
+            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+          >
             <Plus className="w-4 h-4" />
             {t.fleet.addNode}
           </button>
@@ -213,14 +329,14 @@ export default function Fleet() {
                   )}
                 </button>
                 <button
-                  onClick={() => alert(`設定節點 ${node.name} (功能開發中)`)}
+                  onClick={() => handleOpenEditModal(node)}
                   className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
                   title="Settings"
                 >
                   <Settings className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => alert(`刪除節點 ${node.name} (功能開發中)`)}
+                  onClick={() => handleOpenDeleteModal(node)}
                   className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
                   title="Remove"
                 >
@@ -232,7 +348,7 @@ export default function Fleet() {
 
           {/* Add Node Card */}
           <button
-            onClick={() => alert('新增節點功能開發中')}
+            onClick={handleOpenAddModal}
             className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-xl hover:border-primary-400 hover:bg-primary-50 transition-colors"
           >
             <Plus className="w-8 h-8 text-gray-400 mb-2" />
@@ -240,6 +356,198 @@ export default function Fleet() {
           </button>
         </div>
       )}
+
+      {/* Add Node Modal */}
+      <Modal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        title={t.fleet.addNode}
+      >
+        <form onSubmit={handleSubmitAdd} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t.fleet.nodeName}
+            </label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              required
+              placeholder="main-mediamtx"
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t.fleet.apiUrl}
+            </label>
+            <input
+              type="text"
+              value={formData.api_url}
+              onChange={(e) => setFormData({ ...formData, api_url: e.target.value })}
+              required
+              placeholder="http://localhost:9998"
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t.fleet.rtspUrl}
+            </label>
+            <input
+              type="text"
+              value={formData.rtsp_url}
+              onChange={(e) => setFormData({ ...formData, rtsp_url: e.target.value })}
+              placeholder="rtsp://localhost:8554"
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t.fleet.environment}
+            </label>
+            <select
+              value={formData.environment}
+              onChange={(e) => setFormData({ ...formData, environment: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="production">{t.fleet.production}</option>
+              <option value="staging">{t.fleet.staging}</option>
+              <option value="development">{t.fleet.development}</option>
+            </select>
+          </div>
+          <div className="flex justify-end gap-3 pt-4">
+            <button
+              type="button"
+              onClick={() => setIsAddModalOpen(false)}
+              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+            >
+              {t.common.cancel}
+            </button>
+            <button
+              type="submit"
+              disabled={createMutation.isPending}
+              className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+            >
+              {createMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+              {t.common.save}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Edit Node Modal */}
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        title={t.fleet.editNode}
+      >
+        <form onSubmit={handleSubmitEdit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t.fleet.nodeName}
+            </label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              required
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t.fleet.apiUrl}
+            </label>
+            <input
+              type="text"
+              value={formData.api_url}
+              onChange={(e) => setFormData({ ...formData, api_url: e.target.value })}
+              required
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t.fleet.rtspUrl}
+            </label>
+            <input
+              type="text"
+              value={formData.rtsp_url}
+              onChange={(e) => setFormData({ ...formData, rtsp_url: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t.fleet.environment}
+            </label>
+            <select
+              value={formData.environment}
+              onChange={(e) => setFormData({ ...formData, environment: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="production">{t.fleet.production}</option>
+              <option value="staging">{t.fleet.staging}</option>
+              <option value="development">{t.fleet.development}</option>
+            </select>
+          </div>
+          <div className="flex justify-end gap-3 pt-4">
+            <button
+              type="button"
+              onClick={() => setIsEditModalOpen(false)}
+              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+            >
+              {t.common.cancel}
+            </button>
+            <button
+              type="submit"
+              disabled={updateMutation.isPending}
+              className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+            >
+              {updateMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+              {t.common.save}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        title={t.fleet.deleteNode}
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-gray-600">
+            {t.fleet.confirmDelete}
+          </p>
+          {selectedNode && (
+            <div className="p-3 bg-gray-50 rounded-lg">
+              <p className="font-medium text-gray-900">{selectedNode.name}</p>
+              <p className="text-sm text-gray-500">{selectedNode.api_url}</p>
+            </div>
+          )}
+          <div className="flex justify-end gap-3 pt-4">
+            <button
+              type="button"
+              onClick={() => setIsDeleteModalOpen(false)}
+              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+            >
+              {t.common.cancel}
+            </button>
+            <button
+              onClick={handleConfirmDelete}
+              disabled={deleteMutation.isPending}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+            >
+              {deleteMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+              {t.common.delete}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

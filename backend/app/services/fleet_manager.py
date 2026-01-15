@@ -60,9 +60,10 @@ class FleetManager:
                     path=path_name
                 ).first()
 
+                source = path_data.get('source') or {}
                 if stream:
                     # Update existing
-                    stream.source_url = path_data.get('source', {}).get('id')
+                    stream.source_url = source.get('id')
                     updated += 1
                 else:
                     # Create new
@@ -70,7 +71,7 @@ class FleetManager:
                         node_id=node.id,
                         path=path_name,
                         name=path_name,
-                        source_url=path_data.get('source', {}).get('id'),
+                        source_url=source.get('id'),
                         protocol=self._detect_protocol(path_data),
                         status=StreamStatus.UNKNOWN.value
                     )
@@ -102,7 +103,7 @@ class FleetManager:
 
     def _detect_protocol(self, path_data: Dict) -> str:
         """Detect protocol from path data."""
-        source = path_data.get('source', {})
+        source = path_data.get('source') or {}
         source_type = source.get('type', '')
 
         if 'rtsp' in source_type.lower():
