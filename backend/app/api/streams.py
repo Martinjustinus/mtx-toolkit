@@ -19,6 +19,7 @@ def list_streams():
     """List all monitored streams."""
     node_id = request.args.get('node_id', type=int)
     status = request.args.get('status')
+    search = request.args.get('search', '').strip()
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 50, type=int)
 
@@ -27,6 +28,15 @@ def list_streams():
         query = query.filter_by(node_id=node_id)
     if status:
         query = query.filter_by(status=status)
+    if search:
+        # Search in path and name (case-insensitive)
+        search_pattern = f"%{search}%"
+        query = query.filter(
+            db.or_(
+                Stream.path.ilike(search_pattern),
+                Stream.name.ilike(search_pattern)
+            )
+        )
 
     pagination = query.order_by(Stream.path).paginate(
         page=page, per_page=per_page, error_out=False

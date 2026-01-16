@@ -78,8 +78,8 @@ class Stream(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    events = db.relationship('StreamEvent', backref='stream', lazy='dynamic')
-    recordings = db.relationship('Recording', backref='stream', lazy='dynamic')
+    events = db.relationship('StreamEvent', backref='stream', lazy='dynamic', cascade='all, delete-orphan')
+    recordings = db.relationship('Recording', backref='stream', lazy='dynamic', cascade='all, delete-orphan')
 
     __table_args__ = (db.UniqueConstraint('node_id', 'path'),)
 

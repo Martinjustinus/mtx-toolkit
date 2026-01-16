@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   MonitorPlay,
@@ -44,12 +44,27 @@ export default function Preview() {
   const [thumbnailKey, setThumbnailKey] = useState(Date.now())
   const [page, setPage] = useState(1)
 
-  // Fetch streams with pagination
+  // Debounced search for API calls
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (search !== debouncedSearch) {
+        setDebouncedSearch(search)
+        setPage(1) // Reset to page 1 when search changes
+      }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [search, debouncedSearch])
+
+  // Fetch streams with pagination and server-side search
   const { data: streamsData, isLoading: streamsLoading, refetch } = useQuery({
-    queryKey: ['streams-preview', statusFilter, nodeFilter, page],
+    queryKey: ['streams-preview', statusFilter, nodeFilter, page, debouncedSearch],
     queryFn: () => streamsApi.list({
       status: statusFilter || undefined,
       node_id: nodeFilter || undefined,
+      search: debouncedSearch || undefined,
       page,
       per_page: ITEMS_PER_PAGE,
     }),
@@ -69,14 +84,8 @@ export default function Preview() {
     queryFn: () => fleetApi.listNodes(),
   })
 
-  // Filter streams by search
-  const filteredStreams = useMemo(() => {
-    if (!streamsData?.streams) return []
-    return streamsData.streams.filter((stream: Stream) =>
-      stream.path.toLowerCase().includes(search.toLowerCase()) ||
-      stream.name?.toLowerCase().includes(search.toLowerCase())
-    )
-  }, [streamsData?.streams, search])
+  // Streams from API (already filtered server-side)
+  const streams = streamsData?.streams || []
 
   // Get HLS URL for a stream
   const getHlsUrl = (stream: Stream): string => {
@@ -286,9 +295,9 @@ export default function Preview() {
         <div className="flex items-center justify-center py-12">
           <RefreshCw className="w-8 h-8 animate-spin text-primary-500" />
         </div>
-      ) : filteredStreams.length > 0 ? (
+      ) : streams.length > 0 ? (
         <div className={`grid gap-4 ${gridClasses[gridSize]}`}>
-          {filteredStreams.map((stream: Stream) => {
+          {streams.map((stream: Stream) => {
             const hlsUrl = getHlsUrl(stream)
             const isHovered = hoveredStreamId === stream.id
             const isHealthy = stream.status === 'healthy'

@@ -29,7 +29,7 @@ class FleetManager:
     def sync_node_streams(self, node: MediaMTXNode) -> Dict[str, Any]:
         """
         Sync streams from a MediaMTX node.
-        Discovers all paths and updates local database.
+        Discovers all paths, updates local database, and removes stale streams.
         """
         try:
             # Fetch paths from MediaMTX API
@@ -48,11 +48,17 @@ class FleetManager:
             synced = 0
             created = 0
             updated = 0
+            deleted = 0
+
+            # Get all current path names from MediaMTX
+            current_paths = set()
 
             for path_data in paths:
                 path_name = path_data.get('name')
                 if not path_name:
                     continue
+
+                current_paths.add(path_name)
 
                 # Check if stream exists
                 stream = Stream.query.filter_by(
@@ -80,6 +86,16 @@ class FleetManager:
 
                 synced += 1
 
+            # Remove streams that no longer exist in MediaMTX
+            stale_streams = Stream.query.filter(
+                Stream.node_id == node.id,
+                ~Stream.path.in_(current_paths) if current_paths else True
+            ).all()
+
+            for stream in stale_streams:
+                db.session.delete(stream)
+                deleted += 1
+
             # Update node last_seen
             node.last_seen = datetime.utcnow()
             db.session.commit()
@@ -91,7 +107,8 @@ class FleetManager:
                 "total_paths": len(paths),
                 "synced": synced,
                 "created": created,
-                "updated": updated
+                "updated": updated,
+                "deleted": deleted
             }
 
         except Exception as e:
