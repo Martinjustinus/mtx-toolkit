@@ -2,22 +2,24 @@
 Config-as-Code Manager.
 Terraform-like plan/apply workflow with validation, backup, and rollback.
 """
-import yaml
-import hashlib
+
 import difflib
-import json
-from typing import Dict, Any, Optional, List
+import hashlib
 from datetime import datetime
 from pathlib import Path
-import httpx
+from typing import Any, Dict, List, Optional
 
+import httpx
+import yaml
 from flask import current_app
+
 from app import db
 from app.models import ConfigSnapshot, MediaMTXNode
 
 
 class ConfigValidationError(Exception):
     """Raised when config validation fails."""
+
     pass
 
 
@@ -33,29 +35,25 @@ class ConfigManager:
     """
 
     # Required fields in MediaMTX config
-    REQUIRED_FIELDS = ['paths']
+    REQUIRED_FIELDS = ["paths"]
 
     # Environment-specific config overrides
     ENV_DEFAULTS = {
-        'development': {
-            'logLevel': 'debug',
-            'metrics': True,
-            'metricsAddress': ':9998'
+        "development": {
+            "logLevel": "debug",
+            "metrics": True,
+            "metricsAddress": ":9998",
         },
-        'staging': {
-            'logLevel': 'info',
-            'metrics': True,
-            'metricsAddress': ':9998'
-        },
-        'production': {
-            'logLevel': 'warn',
-            'metrics': True,
-            'metricsAddress': ':9998'
-        }
+        "staging": {"logLevel": "info", "metrics": True, "metricsAddress": ":9998"},
+        "production": {"logLevel": "warn", "metrics": True, "metricsAddress": ":9998"},
     }
 
     def __init__(self):
-        self.configs_path = Path(current_app.config.get('CONFIGS_PATH', '/configs')) if current_app else Path('/configs')
+        self.configs_path = (
+            Path(current_app.config.get("CONFIGS_PATH", "/configs"))
+            if current_app
+            else Path("/configs")
+        )
 
     def validate(self, config_yaml: str) -> Dict[str, Any]:
         """
@@ -71,14 +69,14 @@ class ConfigManager:
             return {
                 "valid": False,
                 "errors": [f"YAML parse error: {str(e)}"],
-                "warnings": []
+                "warnings": [],
             }
 
         if not isinstance(config, dict):
             return {
                 "valid": False,
                 "errors": ["Config must be a YAML mapping"],
-                "warnings": []
+                "warnings": [],
             }
 
         # Check required fields
@@ -87,8 +85,8 @@ class ConfigManager:
                 errors.append(f"Missing required field: {field}")
 
         # Validate paths
-        if 'paths' in config:
-            paths = config['paths']
+        if "paths" in config:
+            paths = config["paths"]
             if not isinstance(paths, dict):
                 errors.append("'paths' must be a mapping")
             else:
@@ -97,17 +95,17 @@ class ConfigManager:
                     errors.extend(path_errors)
 
         # Check for common issues
-        if config.get('readTimeout') and config.get('readTimeout') < 5:
+        if config.get("readTimeout") and config.get("readTimeout") < 5:
             warnings.append("readTimeout is very low, may cause connection issues")
 
-        if config.get('writeTimeout') and config.get('writeTimeout') < 5:
+        if config.get("writeTimeout") and config.get("writeTimeout") < 5:
             warnings.append("writeTimeout is very low, may cause connection issues")
 
         return {
             "valid": len(errors) == 0,
             "errors": errors,
             "warnings": warnings,
-            "config_hash": self._hash_config(config_yaml)
+            "config_hash": self._hash_config(config_yaml),
         }
 
     def _validate_path(self, path_name: str, path_config: Dict) -> List[str]:
@@ -122,12 +120,12 @@ class ConfigManager:
             return errors
 
         # Validate source URL if present
-        source = path_config.get('source')
+        source = path_config.get("source")
         if source and not isinstance(source, str):
             errors.append(f"Path '{path_name}': source must be a string")
 
         # Validate runOnReady if present
-        run_on_ready = path_config.get('runOnReady')
+        run_on_ready = path_config.get("runOnReady")
         if run_on_ready and not isinstance(run_on_ready, str):
             errors.append(f"Path '{path_name}': runOnReady must be a string")
 
@@ -155,21 +153,21 @@ class ConfigManager:
         old_lines = yaml.dump(old_yaml, sort_keys=True).splitlines(keepends=True)
         new_lines = yaml.dump(new_yaml, sort_keys=True).splitlines(keepends=True)
 
-        unified_diff = list(difflib.unified_diff(
-            old_lines, new_lines,
-            fromfile='current', tofile='proposed',
-            lineterm=''
-        ))
+        unified_diff = list(
+            difflib.unified_diff(
+                old_lines, new_lines, fromfile="current", tofile="proposed", lineterm=""
+            )
+        )
 
         # Analyze structural changes
         changes = self._analyze_changes(old_yaml, new_yaml)
 
         return {
             "has_changes": len(unified_diff) > 0,
-            "unified_diff": ''.join(unified_diff),
+            "unified_diff": "".join(unified_diff),
             "changes": changes,
             "old_hash": self._hash_config(old_config) if old_config else None,
-            "new_hash": self._hash_config(new_config)
+            "new_hash": self._hash_config(new_config),
         }
 
     def _analyze_changes(self, old: Dict, new: Dict, path: str = "") -> List[Dict]:
@@ -184,35 +182,32 @@ class ConfigManager:
             new_val = new.get(key)
 
             if key not in old:
-                changes.append({
-                    "type": "added",
-                    "path": current_path,
-                    "value": new_val
-                })
+                changes.append(
+                    {"type": "added", "path": current_path, "value": new_val}
+                )
             elif key not in new:
-                changes.append({
-                    "type": "removed",
-                    "path": current_path,
-                    "value": old_val
-                })
+                changes.append(
+                    {"type": "removed", "path": current_path, "value": old_val}
+                )
             elif old_val != new_val:
                 if isinstance(old_val, dict) and isinstance(new_val, dict):
-                    changes.extend(self._analyze_changes(old_val, new_val, current_path))
+                    changes.extend(
+                        self._analyze_changes(old_val, new_val, current_path)
+                    )
                 else:
-                    changes.append({
-                        "type": "modified",
-                        "path": current_path,
-                        "old_value": old_val,
-                        "new_value": new_val
-                    })
+                    changes.append(
+                        {
+                            "type": "modified",
+                            "path": current_path,
+                            "old_value": old_val,
+                            "new_value": new_val,
+                        }
+                    )
 
         return changes
 
     def plan(
-        self,
-        node_id: Optional[int],
-        new_config_yaml: str,
-        environment: str = None
+        self, node_id: Optional[int], new_config_yaml: str, environment: str = None
     ) -> Dict[str, Any]:
         """
         Plan a config change without applying.
@@ -220,11 +215,11 @@ class ConfigManager:
         """
         # Validate new config
         validation = self.validate(new_config_yaml)
-        if not validation['valid']:
+        if not validation["valid"]:
             return {
                 "can_apply": False,
                 "validation": validation,
-                "error": "Config validation failed"
+                "error": "Config validation failed",
             }
 
         # Get current config
@@ -242,7 +237,7 @@ class ConfigManager:
             "validation": validation,
             "diff": diff_result,
             "environment": environment,
-            "summary": f"{len(diff_result['changes'])} change(s) to apply"
+            "summary": f"{len(diff_result['changes'])} change(s) to apply",
         }
 
     def apply(
@@ -251,18 +246,18 @@ class ConfigManager:
         new_config_yaml: str,
         environment: str = None,
         notes: str = None,
-        applied_by: str = "api"
+        applied_by: str = "api",
     ) -> Dict[str, Any]:
         """
         Apply a config change with backup and rollback capability.
         """
         # First, plan to validate
         plan_result = self.plan(node_id, new_config_yaml, environment)
-        if not plan_result['can_apply']:
+        if not plan_result["can_apply"]:
             return {
                 "success": False,
                 "error": "Validation failed",
-                "details": plan_result
+                "details": plan_result,
             }
 
         # Get current config for backup
@@ -282,7 +277,7 @@ class ConfigManager:
                 environment=environment,
                 applied=True,
                 applied_at=datetime.utcnow(),
-                notes="Auto-backup before apply"
+                notes="Auto-backup before apply",
             )
             db.session.add(backup)
             db.session.flush()
@@ -295,13 +290,13 @@ class ConfigManager:
             # Create new snapshot
             snapshot = ConfigSnapshot(
                 node_id=node_id,
-                config_hash=plan_result['validation']['config_hash'],
+                config_hash=plan_result["validation"]["config_hash"],
                 config_yaml=new_config_yaml,
                 environment=environment,
                 applied=True,
                 applied_at=datetime.utcnow(),
                 applied_by=applied_by,
-                notes=notes
+                notes=notes,
             )
             db.session.add(snapshot)
             db.session.commit()
@@ -309,8 +304,8 @@ class ConfigManager:
             return {
                 "success": True,
                 "snapshot_id": snapshot.id,
-                "changes_applied": len(plan_result['diff']['changes']),
-                "backup_id": backup.id if current_config else None
+                "changes_applied": len(plan_result["diff"]["changes"]),
+                "backup_id": backup.id if current_config else None,
             }
 
         except Exception as e:
@@ -326,7 +321,7 @@ class ConfigManager:
             return {
                 "success": False,
                 "error": str(e),
-                "rolled_back": True if current_config else False
+                "rolled_back": True if current_config else False,
             }
 
     def rollback(self, snapshot_id: int, applied_by: str = "api") -> Dict[str, Any]:
@@ -340,7 +335,7 @@ class ConfigManager:
             new_config_yaml=snapshot.config_yaml,
             environment=snapshot.environment,
             notes=f"Rollback to snapshot {snapshot_id}",
-            applied_by=applied_by
+            applied_by=applied_by,
         )
 
     def _fetch_current_config(self, node: MediaMTXNode) -> Optional[str]:
@@ -359,9 +354,7 @@ class ConfigManager:
 
         # Apply global config
         response = httpx.patch(
-            f"{node.api_url}/v3/config/global/patch",
-            json=config,
-            timeout=30
+            f"{node.api_url}/v3/config/global/patch", json=config, timeout=30
         )
 
         if response.status_code not in [200, 204]:
@@ -375,13 +368,13 @@ class ConfigManager:
                 "success": True,
                 "config_yaml": config,
                 "config_hash": self._hash_config(config),
-                "exported_at": datetime.utcnow().isoformat()
+                "exported_at": datetime.utcnow().isoformat(),
             }
         return {"success": False, "error": "Failed to fetch config"}
 
     def get_environment_config(self, environment: str) -> Dict[str, Any]:
         """Get config template for an environment."""
-        config_file = self.configs_path / environment / 'mediamtx.yml'
+        config_file = self.configs_path / environment / "mediamtx.yml"
         if config_file.exists():
             with open(config_file) as f:
                 return yaml.safe_load(f)

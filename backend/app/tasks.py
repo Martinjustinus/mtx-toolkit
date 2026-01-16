@@ -1,10 +1,12 @@
 """
 Celery tasks for background processing.
 """
-from app.celery_app import celery_app
-from app import create_app, db
-from app.models import Stream, MediaMTXNode, Recording, StreamStatus
+
 from datetime import datetime, timedelta
+
+from app import create_app
+from app.celery_app import celery_app
+from app.models import Recording, Stream, StreamStatus
 
 
 @celery_app.task(bind=True, soft_time_limit=60, time_limit=90)
@@ -16,6 +18,7 @@ def quick_check_all_nodes(self):
     app = create_app()
     with app.app_context():
         from app.services.health_checker import HealthChecker
+
         checker = HealthChecker()
         return checker.quick_check_all_nodes()
 
@@ -28,18 +31,19 @@ def check_all_streams_health(self):
     app = create_app()
     with app.app_context():
         # Get all streams that need deep probe (no FPS data)
-        streams = Stream.query.filter(
-            (Stream.fps == None) | (Stream.fps == 0)
-        ).all()
+        streams = Stream.query.filter((Stream.fps.is_(None)) | (Stream.fps == 0)).all()
 
         # If all have FPS, rotate through healthy streams to keep data fresh
         if not streams:
-            streams = Stream.query.filter(
-                Stream.status == StreamStatus.HEALTHY.value
-            ).order_by(Stream.updated_at.asc()).limit(50).all()
+            streams = (
+                Stream.query.filter(Stream.status == StreamStatus.HEALTHY.value)
+                .order_by(Stream.updated_at.asc())
+                .limit(50)
+                .all()
+            )
 
         if not streams:
-            return {'checked': 0, 'results': []}
+            return {"checked": 0, "results": []}
 
         # Dispatch parallel probe tasks
         stream_ids = [s.id for s in streams]
@@ -50,9 +54,9 @@ def check_all_streams_health(self):
         try:
             results = result.get(timeout=300)
         except Exception as e:
-            return {'checked': len(stream_ids), 'error': str(e), 'partial': True}
+            return {"checked": len(stream_ids), "error": str(e), "partial": True}
 
-        return {'checked': len(results), 'results': results}
+        return {"checked": len(results), "results": results}
 
 
 @celery_app.task(bind=True)
@@ -88,22 +92,25 @@ def archive_old_recordings(self):
 
         manager = RetentionManager()
         policy = manager.get_policy()
-        archive_after_days = policy.get('archive_after_days', 3)
+        archive_after_days = policy.get("archive_after_days", 3)
 
         # Find recordings to archive
         threshold = datetime.utcnow() - timedelta(days=archive_after_days)
-        recordings = Recording.query.filter(
-            Recording.start_time < threshold,
-            Recording.is_archived == False
-        ).limit(50).all()
+        recordings = (
+            Recording.query.filter(
+                Recording.start_time < threshold, Recording.is_archived.is_(False)
+            )
+            .limit(50)
+            .all()
+        )
 
         archived = 0
         for recording in recordings:
             result = manager.archive_recording(recording)
-            if result.get('success'):
+            if result.get("success"):
                 archived += 1
 
-        return {'archived': archived, 'total_checked': len(recordings)}
+        return {"archived": archived, "total_checked": len(recordings)}
 
 
 @celery_app.task(bind=True, soft_time_limit=60, time_limit=90)
@@ -123,12 +130,12 @@ def remediate_stream_task(self, stream_id: int):
     """Remediate a specific stream (async task)."""
     app = create_app()
     with app.app_context():
-        from app.services.auto_remediation import AutoRemediation
         from app.models import Stream
+        from app.services.auto_remediation import AutoRemediation
 
         stream = Stream.query.get(stream_id)
         if not stream:
-            return {'error': 'Stream not found'}
+            return {"error": "Stream not found"}
 
         remediation = AutoRemediation()
         return remediation.remediate_stream(stream)
@@ -139,11 +146,11 @@ def generate_thumbnails_task(self):
     """Generate thumbnails for healthy streams."""
     app = create_app()
     with app.app_context():
+        from app.models import MediaMTXNode
         from app.services.thumbnail_service import thumbnail_service
-        from app.models import Stream, MediaMTXNode
 
         # Get healthy streams, prioritize those without recent thumbnails
-        streams = Stream.query.filter_by(status='healthy').limit(50).all()
+        streams = Stream.query.filter_by(status="healthy").limit(50).all()
 
         generated = 0
         failed = 0
@@ -151,13 +158,11 @@ def generate_thumbnails_task(self):
             node = MediaMTXNode.query.get(stream.node_id)
             if node:
                 result = thumbnail_service.generate_thumbnail(
-                    stream.path,
-                    node.id,
-                    node.api_url
+                    stream.path, node.id, node.api_url
                 )
                 if result:
                     generated += 1
                 else:
                     failed += 1
 
-        return {'generated': generated, 'failed': failed, 'total': len(streams)}
+        return {"generated": generated, "failed": failed, "total": len(streams)}

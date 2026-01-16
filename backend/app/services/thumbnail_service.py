@@ -2,27 +2,28 @@
 Thumbnail generation service for stream previews.
 Uses ffmpeg to capture frames from HLS/RTSP streams.
 """
+
+import hashlib
+import logging
 import os
 import subprocess
-import logging
-import hashlib
-from pathlib import Path
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
 # Thumbnail settings
-THUMBNAIL_DIR = os.getenv('THUMBNAIL_DIR', '/tmp/thumbnails')
-THUMBNAIL_WIDTH = int(os.getenv('THUMBNAIL_WIDTH', '320'))
-THUMBNAIL_HEIGHT = int(os.getenv('THUMBNAIL_HEIGHT', '180'))
-THUMBNAIL_QUALITY = int(os.getenv('THUMBNAIL_QUALITY', '80'))
-THUMBNAIL_CACHE_SECONDS = int(os.getenv('THUMBNAIL_CACHE_SECONDS', '300'))
-FFMPEG_TIMEOUT = int(os.getenv('FFMPEG_TIMEOUT', '10'))
+THUMBNAIL_DIR = os.getenv("THUMBNAIL_DIR", "/tmp/thumbnails")
+THUMBNAIL_WIDTH = int(os.getenv("THUMBNAIL_WIDTH", "320"))
+THUMBNAIL_HEIGHT = int(os.getenv("THUMBNAIL_HEIGHT", "180"))
+THUMBNAIL_QUALITY = int(os.getenv("THUMBNAIL_QUALITY", "80"))
+THUMBNAIL_CACHE_SECONDS = int(os.getenv("THUMBNAIL_CACHE_SECONDS", "300"))
+FFMPEG_TIMEOUT = int(os.getenv("FFMPEG_TIMEOUT", "10"))
 
 # HLS port (same as in streams.py)
-HLS_PORT = int(os.getenv('MEDIAMTX_HLS_PORT', '8893'))
+HLS_PORT = int(os.getenv("MEDIAMTX_HLS_PORT", "8893"))
 
 
 class ThumbnailService:
@@ -54,11 +55,7 @@ class ThumbnailService:
         return datetime.now() - mtime < timedelta(seconds=THUMBNAIL_CACHE_SECONDS)
 
     def generate_thumbnail(
-        self,
-        stream_path: str,
-        node_id: int,
-        node_api_url: str,
-        force: bool = False
+        self, stream_path: str, node_id: int, node_api_url: str, force: bool = False
     ) -> Optional[str]:
         """
         Generate a thumbnail for a stream.
@@ -85,30 +82,34 @@ class ThumbnailService:
         try:
             # Use ffmpeg to capture a frame from HLS stream
             cmd = [
-                'ffmpeg',
-                '-y',  # Overwrite output
-                '-i', hls_url,
-                '-vframes', '1',  # Capture 1 frame
-                '-vf', f'scale={THUMBNAIL_WIDTH}:{THUMBNAIL_HEIGHT}',
-                '-q:v', str(100 - THUMBNAIL_QUALITY),  # Quality (lower is better for ffmpeg)
-                '-f', 'image2',
-                str(thumb_path)
+                "ffmpeg",
+                "-y",  # Overwrite output
+                "-i",
+                hls_url,
+                "-vframes",
+                "1",  # Capture 1 frame
+                "-vf",
+                f"scale={THUMBNAIL_WIDTH}:{THUMBNAIL_HEIGHT}",
+                "-q:v",
+                str(100 - THUMBNAIL_QUALITY),  # Quality (lower is better for ffmpeg)
+                "-f",
+                "image2",
+                str(thumb_path),
             ]
 
             logger.debug(f"Running ffmpeg for {stream_path}: {' '.join(cmd)}")
 
             result = subprocess.run(
-                cmd,
-                capture_output=True,
-                timeout=FFMPEG_TIMEOUT,
-                text=True
+                cmd, capture_output=True, timeout=FFMPEG_TIMEOUT, text=True
             )
 
             if result.returncode == 0 and thumb_path.exists():
                 logger.info(f"Generated thumbnail for {stream_path}")
                 return str(thumb_path)
             else:
-                logger.warning(f"ffmpeg failed for {stream_path}: {result.stderr[:200]}")
+                logger.warning(
+                    f"ffmpeg failed for {stream_path}: {result.stderr[:200]}"
+                )
                 return None
 
         except subprocess.TimeoutExpired:
@@ -118,11 +119,7 @@ class ThumbnailService:
             logger.error(f"Error generating thumbnail for {stream_path}: {e}")
             return None
 
-    def get_cached_thumbnail(
-        self,
-        stream_path: str,
-        node_id: int
-    ) -> Optional[str]:
+    def get_cached_thumbnail(self, stream_path: str, node_id: int) -> Optional[str]:
         """
         Get cached thumbnail only (no generation).
 
@@ -137,10 +134,7 @@ class ThumbnailService:
         return None
 
     def get_thumbnail(
-        self,
-        stream_path: str,
-        node_id: int,
-        node_api_url: str
+        self, stream_path: str, node_id: int, node_api_url: str
     ) -> Optional[str]:
         """
         Get thumbnail for a stream (generate if needed).

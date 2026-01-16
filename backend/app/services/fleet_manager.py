@@ -2,14 +2,15 @@
 Fleet Manager Service.
 Multi-node MediaMTX management with rolling updates.
 """
+
 import time
-from typing import Dict, Any, List, Optional
 from datetime import datetime
+from typing import Any, Dict
+
 import httpx
 
-from flask import current_app
 from app import db
-from app.models import MediaMTXNode, Stream, ConfigSnapshot, StreamStatus
+from app.models import ConfigSnapshot, MediaMTXNode, Stream, StreamStatus
 
 
 class FleetManager:
@@ -39,11 +40,11 @@ class FleetManager:
                 return {
                     "success": False,
                     "error": f"Failed to fetch paths: HTTP {response.status_code}",
-                    "node_id": node.id
+                    "node_id": node.id,
                 }
 
             data = response.json()
-            paths = data.get('items', [])
+            paths = data.get("items", [])
 
             synced = 0
             created = 0
@@ -54,22 +55,19 @@ class FleetManager:
             current_paths = set()
 
             for path_data in paths:
-                path_name = path_data.get('name')
+                path_name = path_data.get("name")
                 if not path_name:
                     continue
 
                 current_paths.add(path_name)
 
                 # Check if stream exists
-                stream = Stream.query.filter_by(
-                    node_id=node.id,
-                    path=path_name
-                ).first()
+                stream = Stream.query.filter_by(node_id=node.id, path=path_name).first()
 
-                source = path_data.get('source') or {}
+                source = path_data.get("source") or {}
                 if stream:
                     # Update existing
-                    stream.source_url = source.get('id')
+                    stream.source_url = source.get("id")
                     updated += 1
                 else:
                     # Create new
@@ -77,9 +75,9 @@ class FleetManager:
                         node_id=node.id,
                         path=path_name,
                         name=path_name,
-                        source_url=source.get('id'),
+                        source_url=source.get("id"),
                         protocol=self._detect_protocol(path_data),
-                        status=StreamStatus.UNKNOWN.value
+                        status=StreamStatus.UNKNOWN.value,
                     )
                     db.session.add(stream)
                     created += 1
@@ -89,7 +87,7 @@ class FleetManager:
             # Remove streams that no longer exist in MediaMTX
             stale_streams = Stream.query.filter(
                 Stream.node_id == node.id,
-                ~Stream.path.in_(current_paths) if current_paths else True
+                ~Stream.path.in_(current_paths) if current_paths else True,
             ).all()
 
             for stream in stale_streams:
@@ -108,30 +106,26 @@ class FleetManager:
                 "synced": synced,
                 "created": created,
                 "updated": updated,
-                "deleted": deleted
+                "deleted": deleted,
             }
 
         except Exception as e:
-            return {
-                "success": False,
-                "error": str(e),
-                "node_id": node.id
-            }
+            return {"success": False, "error": str(e), "node_id": node.id}
 
     def _detect_protocol(self, path_data: Dict) -> str:
         """Detect protocol from path data."""
-        source = path_data.get('source') or {}
-        source_type = source.get('type', '')
+        source = path_data.get("source") or {}
+        source_type = source.get("type", "")
 
-        if 'rtsp' in source_type.lower():
-            return 'rtsp'
-        elif 'rtmp' in source_type.lower():
-            return 'rtmp'
-        elif 'webrtc' in source_type.lower():
-            return 'webrtc'
-        elif 'hls' in source_type.lower():
-            return 'hls'
-        return 'unknown'
+        if "rtsp" in source_type.lower():
+            return "rtsp"
+        elif "rtmp" in source_type.lower():
+            return "rtmp"
+        elif "webrtc" in source_type.lower():
+            return "webrtc"
+        elif "hls" in source_type.lower():
+            return "hls"
+        return "unknown"
 
     def sync_all_nodes(self) -> Dict[str, Any]:
         """Sync streams from all active nodes."""
@@ -144,9 +138,9 @@ class FleetManager:
 
         return {
             "total_nodes": len(nodes),
-            "successful": sum(1 for r in results if r.get('success')),
-            "failed": sum(1 for r in results if not r.get('success')),
-            "results": results
+            "successful": sum(1 for r in results if r.get("success")),
+            "failed": sum(1 for r in results if not r.get("success")),
+            "results": results,
         }
 
     def rolling_update(
@@ -154,7 +148,7 @@ class FleetManager:
         environment: str = None,
         config_snapshot_id: int = None,
         batch_size: int = 1,
-        delay_between_batches: float = 30.0
+        delay_between_batches: float = 30.0,
     ) -> Dict[str, Any]:
         """
         Perform a rolling config update across fleet.
@@ -187,7 +181,7 @@ class FleetManager:
 
         config_manager = ConfigManager()
         results = []
-        batches = [nodes[i:i+batch_size] for i in range(0, len(nodes), batch_size)]
+        batches = [nodes[i : i + batch_size] for i in range(0, len(nodes), batch_size)]
 
         for batch_num, batch in enumerate(batches):
             batch_results = []
@@ -198,24 +192,22 @@ class FleetManager:
                     new_config_yaml=config_yaml,
                     environment=environment,
                     notes=f"Rolling update batch {batch_num + 1}",
-                    applied_by="fleet_manager"
+                    applied_by="fleet_manager",
                 )
-                batch_results.append({
-                    "node_id": node.id,
-                    "node_name": node.name,
-                    **result
-                })
+                batch_results.append(
+                    {"node_id": node.id, "node_name": node.name, **result}
+                )
 
             results.extend(batch_results)
 
             # Check if batch succeeded
-            batch_failed = sum(1 for r in batch_results if not r.get('success'))
+            batch_failed = sum(1 for r in batch_results if not r.get("success"))
             if batch_failed > 0:
                 return {
                     "success": False,
                     "error": f"Batch {batch_num + 1} had {batch_failed} failures, stopping rollout",
                     "completed_batches": batch_num + 1,
-                    "results": results
+                    "results": results,
                 }
 
             # Delay before next batch (except for last batch)
@@ -226,7 +218,7 @@ class FleetManager:
             "success": True,
             "total_nodes": len(nodes),
             "batches": len(batches),
-            "results": results
+            "results": results,
         }
 
     def get_node_health(self, node: MediaMTXNode) -> Dict[str, Any]:
@@ -240,7 +232,7 @@ class FleetManager:
             paths = []
             if api_healthy:
                 data = response.json()
-                paths = data.get('items', [])
+                paths = data.get("items", [])
 
             return {
                 "node_id": node.id,
@@ -249,7 +241,7 @@ class FleetManager:
                 "api_responsive": api_healthy,
                 "path_count": len(paths),
                 "last_seen": node.last_seen.isoformat() if node.last_seen else None,
-                "checked_at": datetime.utcnow().isoformat()
+                "checked_at": datetime.utcnow().isoformat(),
             }
 
         except Exception as e:
@@ -258,7 +250,7 @@ class FleetManager:
                 "node_name": node.name,
                 "is_healthy": False,
                 "error": str(e),
-                "checked_at": datetime.utcnow().isoformat()
+                "checked_at": datetime.utcnow().isoformat(),
             }
 
     def check_all_nodes_health(self) -> Dict[str, Any]:
@@ -271,22 +263,20 @@ class FleetManager:
             results.append(health)
 
             # Update last_seen if healthy
-            if health.get('is_healthy'):
+            if health.get("is_healthy"):
                 node.last_seen = datetime.utcnow()
 
         db.session.commit()
 
         return {
             "total_nodes": len(nodes),
-            "healthy": sum(1 for r in results if r.get('is_healthy')),
-            "unhealthy": sum(1 for r in results if not r.get('is_healthy')),
-            "results": results
+            "healthy": sum(1 for r in results if r.get("is_healthy")),
+            "unhealthy": sum(1 for r in results if not r.get("is_healthy")),
+            "results": results,
         }
 
     def apply_policy_to_fleet(
-        self,
-        policy: Dict[str, Any],
-        environment: str = None
+        self, policy: Dict[str, Any], environment: str = None
     ) -> Dict[str, Any]:
         """
         Apply a uniform policy across all nodes.
@@ -305,19 +295,15 @@ class FleetManager:
         updated = 0
 
         for stream in streams:
-            if 'auto_remediation_enabled' in policy:
-                stream.auto_remediate = policy['auto_remediation_enabled']
-            if 'recording_enabled' in policy:
-                stream.recording_enabled = policy['recording_enabled']
+            if "auto_remediation_enabled" in policy:
+                stream.auto_remediate = policy["auto_remediation_enabled"]
+            if "recording_enabled" in policy:
+                stream.recording_enabled = policy["recording_enabled"]
             updated += 1
 
         db.session.commit()
 
-        return {
-            "success": True,
-            "streams_updated": updated,
-            "policy_applied": policy
-        }
+        return {"success": True, "streams_updated": updated, "policy_applied": policy}
 
     def get_fleet_metrics(self) -> Dict[str, Any]:
         """Get aggregated metrics across the fleet."""
@@ -330,7 +316,9 @@ class FleetManager:
         for node in nodes:
             node_streams = node.streams.all()
             total_streams += len(node_streams)
-            healthy_streams += sum(1 for s in node_streams if s.status == StreamStatus.HEALTHY.value)
+            healthy_streams += sum(
+                1 for s in node_streams if s.status == StreamStatus.HEALTHY.value
+            )
 
             # Sum up bitrates
             for stream in node_streams:
@@ -341,18 +329,24 @@ class FleetManager:
             "nodes": {
                 "total": len(nodes),
                 "by_environment": {
-                    "production": sum(1 for n in nodes if n.environment == 'production'),
-                    "staging": sum(1 for n in nodes if n.environment == 'staging'),
-                    "development": sum(1 for n in nodes if n.environment == 'development')
-                }
+                    "production": sum(
+                        1 for n in nodes if n.environment == "production"
+                    ),
+                    "staging": sum(1 for n in nodes if n.environment == "staging"),
+                    "development": sum(
+                        1 for n in nodes if n.environment == "development"
+                    ),
+                },
             },
             "streams": {
                 "total": total_streams,
                 "healthy": healthy_streams,
-                "health_percentage": round(healthy_streams / total_streams * 100, 1) if total_streams > 0 else 0
+                "health_percentage": (
+                    round(healthy_streams / total_streams * 100, 1)
+                    if total_streams > 0
+                    else 0
+                ),
             },
-            "bandwidth": {
-                "total_mbps": round(total_bandwidth / 1_000_000, 2)
-            },
-            "timestamp": datetime.utcnow().isoformat()
+            "bandwidth": {"total_mbps": round(total_bandwidth / 1_000_000, 2)},
+            "timestamp": datetime.utcnow().isoformat(),
         }
