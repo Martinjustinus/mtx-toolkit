@@ -10,6 +10,8 @@ import {
   Wrench,
   Loader2,
   Trash2,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import Card from '../components/Card'
 import Modal from '../components/Modal'
@@ -39,8 +41,11 @@ export default function Streams() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StreamStatus | ''>('')
+  const [currentPage, setCurrentPage] = useState(1)
   const [probingId, setProbingId] = useState<number | null>(null)
   const [remediatingId, setRemediatingId] = useState<number | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const perPage = 50
 
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
@@ -50,10 +55,21 @@ export default function Streams() {
   const [formData, setFormData] = useState<StreamFormData>(initialFormData)
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['streams', statusFilter],
-    queryFn: () => streamsApi.list({ status: statusFilter || undefined }),
+    queryKey: ['streams', statusFilter, currentPage],
+    queryFn: () => streamsApi.list({
+      status: statusFilter || undefined,
+      page: currentPage,
+      per_page: perPage,
+    }),
     refetchInterval: 30000,
   })
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    await refetch()
+    // Keep spinning for at least 500ms so user sees feedback
+    setTimeout(() => setIsRefreshing(false), 500)
+  }
 
   const { data: nodesData } = useQuery({
     queryKey: ['fleet-nodes'],
@@ -195,10 +211,13 @@ export default function Streams() {
         </div>
         <div className="flex gap-3">
           <button
-            onClick={() => refetch()}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className={`flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg transition-colors ${
+              isRefreshing ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
+            }`}
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             {t.streams.refresh}
           </button>
           <button
@@ -225,7 +244,10 @@ export default function Streams() {
         </div>
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as StreamStatus | '')}
+          onChange={(e) => {
+            setStatusFilter(e.target.value as StreamStatus | '')
+            setCurrentPage(1)
+          }}
           className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
         >
           <option value="">{t.streams.allStatus}</option>
@@ -342,10 +364,31 @@ export default function Streams() {
         )}
       </Card>
 
-      {/* Summary */}
+      {/* Pagination */}
       {data && (
-        <div className="text-sm text-gray-500">
-          {t.streams.showing} {filteredStreams.length} {t.streams.of} {data.total} streams
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-gray-500">
+            {t.streams.showing} {((currentPage - 1) * perPage) + 1}-{Math.min(currentPage * perPage, data.total)} {t.streams.of} {data.total} streams
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="flex items-center gap-1 px-3 py-1.5 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="text-sm text-gray-600">
+              {currentPage} / {data.pages || 1}
+            </span>
+            <button
+              onClick={() => setCurrentPage(p => Math.min(data.pages || 1, p + 1))}
+              disabled={currentPage >= (data.pages || 1)}
+              className="flex items-center gap-1 px-3 py-1.5 text-sm bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
 

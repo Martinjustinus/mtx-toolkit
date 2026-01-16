@@ -78,21 +78,23 @@ Recording file management with online playback, download, disk usage monitoring,
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                   Quick Check (every 10s)                    │
+│              Quick Check - Primary Monitoring                │
+│                      (every 10 seconds)                      │
 │  ┌─────────┐    ┌─────────────┐    ┌──────────────────┐    │
 │  │ MediaMTX │───▶│  API Query  │───▶│ ready: true/false │    │
 │  │   API    │    │ /v3/paths   │    │   Status Update   │    │
 │  └─────────┘    └─────────────┘    └──────────────────┘    │
-│                        ⬇ ~0.2s / 200 streams                │
+│                    ⬇ All streams in ~0.2s                   │
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
-│                    Deep Check (every 5min)                   │
+│            Deep Check - Detailed Diagnostics                 │
+│                      (every 5 minutes)                       │
 │  ┌─────────┐    ┌─────────────┐    ┌──────────────────┐    │
 │  │  RTSP   │───▶│   ffprobe   │───▶│ FPS, Resolution,  │    │
-│  │ Stream  │    │  TCP Mode   │    │ Codec Diagnostics │    │
+│  │ Stream  │    │  TCP Mode   │    │ Codec, Bitrate    │    │
 │  └─────────┘    └─────────────┘    └──────────────────┘    │
-│                        ⬇ ~10s / stream                      │
+│                    ⬇ Parallel execution                     │
 └─────────────────────────────────────────────────────────────┘
 ```
 

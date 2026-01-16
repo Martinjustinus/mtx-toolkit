@@ -22,16 +22,21 @@ def quick_check_all_nodes(self):
 
 @celery_app.task(bind=True, soft_time_limit=600, time_limit=660)
 def check_all_streams_health(self):
-    """Check health of all streams using parallel sub-tasks."""
+    """Deep check streams using ffprobe to get FPS, codec, etc."""
     from celery import group
 
     app = create_app()
     with app.app_context():
-        # Get streams that need checking
-        streams = Stream.query.filter_by(status=StreamStatus.UNKNOWN.value).limit(10).all()
-        streams += Stream.query.filter(
-            Stream.last_check < datetime.utcnow() - timedelta(seconds=30)
-        ).limit(20).all()
+        # Get all streams that need deep probe (no FPS data)
+        streams = Stream.query.filter(
+            (Stream.fps == None) | (Stream.fps == 0)
+        ).all()
+
+        # If all have FPS, rotate through healthy streams to keep data fresh
+        if not streams:
+            streams = Stream.query.filter(
+                Stream.status == StreamStatus.HEALTHY.value
+            ).order_by(Stream.updated_at.asc()).limit(50).all()
 
         if not streams:
             return {'checked': 0, 'results': []}
@@ -101,24 +106,15 @@ def archive_old_recordings(self):
         return {'archived': archived, 'total_checked': len(recordings)}
 
 
-@celery_app.task(bind=True, soft_time_limit=30, time_limit=45)
+@celery_app.task(bind=True, soft_time_limit=60, time_limit=90)
 def probe_stream_task(self, stream_id: int):
     """Probe a specific stream (async task)."""
     app = create_app()
     with app.app_context():
         from app.services.health_checker import HealthChecker
-        from app.services.auto_remediation import AutoRemediation
 
         checker = HealthChecker()
         result = checker.probe_stream(stream_id)
-
-        # Auto-remediate if unhealthy
-        stream = Stream.query.get(stream_id)
-        if stream and stream.status == StreamStatus.UNHEALTHY.value:
-            remediation = AutoRemediation()
-            if remediation.should_auto_remediate(stream):
-                remediation.remediate_stream(stream)
-
         return result
 
 

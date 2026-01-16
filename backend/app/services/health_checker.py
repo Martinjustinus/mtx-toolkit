@@ -231,6 +231,40 @@ class HealthChecker:
 
         return json.loads(result.stdout) if result.stdout else {}
 
+    def _measure_fps(self, url: str, duration: float = 2.0) -> Optional[float]:
+        """Measure actual FPS by counting frames over a duration."""
+        try:
+            cmd = [
+                'ffprobe',
+                '-v', 'error',
+                '-select_streams', 'v:0',
+                '-count_frames',
+                '-show_entries', 'stream=nb_read_frames',
+                '-print_format', 'json',
+                '-read_intervals', f'%+{duration}',
+            ]
+            if url.startswith('rtsp://'):
+                cmd.extend(['-rtsp_transport', 'tcp'])
+            cmd.append(url)
+
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=self.timeout + duration + 5
+            )
+
+            if result.returncode == 0 and result.stdout:
+                data = json.loads(result.stdout)
+                streams = data.get('streams', [])
+                if streams:
+                    nb_frames = int(streams[0].get('nb_read_frames', 0))
+                    if nb_frames > 0:
+                        return round(nb_frames / duration, 1)
+        except Exception:
+            pass
+        return None
+
     def _analyze_probe_result(self, probe_data: Dict, url: str, protocol: str) -> Dict[str, Any]:
         """Analyze ffprobe result and determine health status."""
         issues = []
@@ -260,8 +294,20 @@ class HealthChecker:
 
         # Analyze video stream
         if video_stream:
-            # Parse FPS
-            fps = self._parse_fps(video_stream.get('r_frame_rate', '0/1'))
+            # Parse FPS - try multiple methods
+            fps = self._parse_fps(video_stream.get('avg_frame_rate', '0/1'))
+
+            # If avg_frame_rate is 0 or invalid, try r_frame_rate
+            if not fps or fps > 1000:
+                r_fps = self._parse_fps(video_stream.get('r_frame_rate', '0/1'))
+                # Only use r_frame_rate if it's reasonable (not RTP timebase like 90000)
+                if r_fps and r_fps <= 120:
+                    fps = r_fps
+
+            # If still no valid FPS (common for live RTSP), measure by counting frames
+            if not fps and url.startswith('rtsp://'):
+                fps = self._measure_fps(url, duration=2.0)
+
             result['fps'] = fps
             result['width'] = video_stream.get('width')
             result['height'] = video_stream.get('height')
