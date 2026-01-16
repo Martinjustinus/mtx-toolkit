@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard,
   Radio,
+  MonitorPlay,
   Server,
   Settings,
   Film,
@@ -20,6 +21,7 @@ interface LayoutProps {
 const navItems = [
   { path: '/dashboard', labelKey: 'dashboard' as const, icon: LayoutDashboard },
   { path: '/streams', labelKey: 'streams' as const, icon: Radio },
+  { path: '/preview', labelKey: 'preview' as const, icon: MonitorPlay },
   { path: '/fleet', labelKey: 'fleet' as const, icon: Server },
   { path: '/config', labelKey: 'config' as const, icon: Settings },
   { path: '/recordings', labelKey: 'recordings' as const, icon: Film },

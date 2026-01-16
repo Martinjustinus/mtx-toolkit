@@ -8,6 +8,9 @@ interface CardProps {
   className?: string
   padding?: 'none' | 'sm' | 'md' | 'lg'
   action?: ReactNode
+  onClick?: () => void
+  onMouseEnter?: () => void
+  onMouseLeave?: () => void
 }
 
 export default function Card({
@@ -17,13 +20,20 @@ export default function Card({
   className,
   padding = 'md',
   action,
+  onClick,
+  onMouseEnter,
+  onMouseLeave,
 }: CardProps) {
   return (
     <div
       className={clsx(
         'bg-white rounded-xl shadow-sm border border-gray-200',
+        onClick && 'cursor-pointer',
         className
       )}
+      onClick={onClick}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
     >
       {(title || action) && (
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">

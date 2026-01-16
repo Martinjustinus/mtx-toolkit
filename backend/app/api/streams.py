@@ -1,11 +1,17 @@
 """
 Streams management API endpoints.
 """
-from flask import Blueprint, jsonify, request
+import os
+from urllib.parse import urlparse
+from flask import Blueprint, jsonify, request, send_file, abort
 from app import db
 from app.models import Stream, MediaMTXNode, StreamStatus
+from app.services.thumbnail_service import thumbnail_service
 
 streams_bp = Blueprint('streams', __name__)
+
+# HLS port configuration (MediaMTX default is 8888)
+HLS_PORT = int(os.getenv('MEDIAMTX_HLS_PORT', '8888'))
 
 
 @streams_bp.route('/', methods=['GET'])
@@ -133,3 +139,118 @@ def trigger_remediation(stream_id: int):
     result = remediation.remediate_stream(stream)
 
     return jsonify(result)
+
+
+def _get_hls_base_url(node: MediaMTXNode, use_proxy: bool = True) -> str:
+    """Derive HLS base URL from node's API URL.
+
+    Args:
+        node: The MediaMTX node
+        use_proxy: If True, return relative path for nginx proxy (/hls/nodeX)
+                   If False, return direct MediaMTX URL
+    """
+    if use_proxy:
+        # Use nginx proxy path with node ID - works in Docker environment
+        # nginx routes /hls/node1/, /hls/node3/ to different MediaMTX instances
+        return f"/hls/node{node.id}"
+
+    # Direct connection to MediaMTX (for development or direct access)
+    parsed = urlparse(node.api_url)
+    return f"http://{parsed.hostname}:{HLS_PORT}"
+
+
+@streams_bp.route('/<int:stream_id>/playback', methods=['GET'])
+def get_stream_playback(stream_id: int):
+    """Get playback URLs for a stream (HLS/WebRTC)."""
+    stream = Stream.query.get_or_404(stream_id)
+    node = MediaMTXNode.query.get_or_404(stream.node_id)
+
+    hls_base = _get_hls_base_url(node)
+
+    return jsonify({
+        "stream_id": stream.id,
+        "path": stream.path,
+        "hls_url": f"{hls_base}/{stream.path}/index.m3u8",
+        "hls_base_url": hls_base,
+        "status": stream.status
+    })
+
+
+@streams_bp.route('/playback/config', methods=['GET'])
+def get_playback_config():
+    """Get global playback configuration for all streams."""
+    # Get all active nodes and their HLS base URLs
+    nodes = MediaMTXNode.query.filter_by(is_active=True).all()
+
+    nodes_config = {}
+    for node in nodes:
+        nodes_config[node.id] = {
+            "name": node.name,
+            "hls_base_url": _get_hls_base_url(node),
+            "environment": node.environment
+        }
+
+    return jsonify({
+        "hls_port": HLS_PORT,
+        "nodes": nodes_config
+    })
+
+
+@streams_bp.route('/<int:stream_id>/thumbnail', methods=['GET'])
+def get_stream_thumbnail(stream_id: int):
+    """Get thumbnail image for a stream."""
+    stream = Stream.query.get_or_404(stream_id)
+    node = MediaMTXNode.query.get_or_404(stream.node_id)
+
+    # Generate or get cached thumbnail
+    thumb_path = thumbnail_service.get_thumbnail(
+        stream.path,
+        node.id,
+        node.api_url
+    )
+
+    if thumb_path and os.path.exists(thumb_path):
+        return send_file(
+            thumb_path,
+            mimetype='image/jpeg',
+            max_age=30  # Cache for 30 seconds
+        )
+
+    # Return placeholder or 404
+    abort(404, description="Thumbnail not available")
+
+
+@streams_bp.route('/thumbnail/batch', methods=['POST'])
+def generate_thumbnails_batch():
+    """Generate thumbnails for multiple streams."""
+    data = request.get_json() or {}
+    stream_ids = data.get('stream_ids', [])
+    force = data.get('force', False)
+
+    if not stream_ids:
+        # Generate for all healthy streams (limit 50)
+        streams = Stream.query.filter_by(status='healthy').limit(50).all()
+    else:
+        streams = Stream.query.filter(Stream.id.in_(stream_ids)).all()
+
+    results = {}
+    for stream in streams:
+        node = MediaMTXNode.query.get(stream.node_id)
+        if node:
+            thumb_path = thumbnail_service.generate_thumbnail(
+                stream.path,
+                node.id,
+                node.api_url,
+                force=force
+            )
+            results[stream.id] = {
+                "path": stream.path,
+                "success": thumb_path is not None,
+                "url": f"/api/streams/{stream.id}/thumbnail" if thumb_path else None
+            }
+
+    return jsonify({
+        "total": len(results),
+        "successful": sum(1 for r in results.values() if r['success']),
+        "results": results
+    })
