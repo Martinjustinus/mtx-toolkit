@@ -53,4 +53,9 @@ celery_app.conf.beat_schedule = {
         'task': 'app.tasks.archive_old_recordings',
         'schedule': crontab(hour=3, minute=0),
     },
+    # Generate thumbnails every 2 minutes
+    'generate-thumbnails': {
+        'task': 'app.tasks.generate_thumbnails_task',
+        'schedule': 120.0,
+    },
 }

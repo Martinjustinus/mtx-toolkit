@@ -132,3 +132,32 @@ def remediate_stream_task(self, stream_id: int):
 
         remediation = AutoRemediation()
         return remediation.remediate_stream(stream)
+
+
+@celery_app.task(bind=True, soft_time_limit=300, time_limit=360)
+def generate_thumbnails_task(self):
+    """Generate thumbnails for healthy streams."""
+    app = create_app()
+    with app.app_context():
+        from app.services.thumbnail_service import thumbnail_service
+        from app.models import Stream, MediaMTXNode
+
+        # Get healthy streams, prioritize those without recent thumbnails
+        streams = Stream.query.filter_by(status='healthy').limit(50).all()
+
+        generated = 0
+        failed = 0
+        for stream in streams:
+            node = MediaMTXNode.query.get(stream.node_id)
+            if node:
+                result = thumbnail_service.generate_thumbnail(
+                    stream.path,
+                    node.id,
+                    node.api_url
+                )
+                if result:
+                    generated += 1
+                else:
+                    failed += 1
+
+        return {'generated': generated, 'failed': failed, 'total': len(streams)}

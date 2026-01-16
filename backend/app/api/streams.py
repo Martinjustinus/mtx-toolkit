@@ -198,15 +198,14 @@ def get_playback_config():
 
 @streams_bp.route('/<int:stream_id>/thumbnail', methods=['GET'])
 def get_stream_thumbnail(stream_id: int):
-    """Get thumbnail image for a stream."""
+    """Get thumbnail image for a stream (cached only, no on-the-fly generation)."""
     stream = Stream.query.get_or_404(stream_id)
     node = MediaMTXNode.query.get_or_404(stream.node_id)
 
-    # Generate or get cached thumbnail
-    thumb_path = thumbnail_service.get_thumbnail(
+    # Only return cached thumbnail - no on-the-fly generation to avoid blocking
+    thumb_path = thumbnail_service.get_cached_thumbnail(
         stream.path,
-        node.id,
-        node.api_url
+        node.id
     )
 
     if thumb_path and os.path.exists(thumb_path):
@@ -216,16 +215,19 @@ def get_stream_thumbnail(stream_id: int):
             max_age=30  # Cache for 30 seconds
         )
 
-    # Return placeholder or 404
+    # Return 404 - frontend will show placeholder
     abort(404, description="Thumbnail not available")
 
 
 @streams_bp.route('/thumbnail/batch', methods=['POST'])
 def generate_thumbnails_batch():
-    """Generate thumbnails for multiple streams."""
+    """Generate thumbnails for multiple streams (runs in background)."""
+    import threading
+
     data = request.get_json() or {}
     stream_ids = data.get('stream_ids', [])
     force = data.get('force', False)
+    sync = data.get('sync', False)  # If true, run synchronously
 
     if not stream_ids:
         # Generate for all healthy streams (limit 50)
@@ -233,24 +235,46 @@ def generate_thumbnails_batch():
     else:
         streams = Stream.query.filter(Stream.id.in_(stream_ids)).all()
 
-    results = {}
+    # Prepare stream info for background processing
+    stream_infos = []
     for stream in streams:
         node = MediaMTXNode.query.get(stream.node_id)
         if node:
-            thumb_path = thumbnail_service.generate_thumbnail(
-                stream.path,
-                node.id,
-                node.api_url,
-                force=force
-            )
-            results[stream.id] = {
-                "path": stream.path,
-                "success": thumb_path is not None,
-                "url": f"/api/streams/{stream.id}/thumbnail" if thumb_path else None
-            }
+            stream_infos.append({
+                'stream_id': stream.id,
+                'path': stream.path,
+                'node_id': node.id,
+                'api_url': node.api_url
+            })
 
-    return jsonify({
-        "total": len(results),
-        "successful": sum(1 for r in results.values() if r['success']),
-        "results": results
-    })
+    def generate_in_background(infos, force_regen):
+        """Background thumbnail generation."""
+        for info in infos:
+            thumbnail_service.generate_thumbnail(
+                info['path'],
+                info['node_id'],
+                info['api_url'],
+                force=force_regen
+            )
+
+    if sync:
+        # Synchronous generation (for testing)
+        generate_in_background(stream_infos, force)
+        return jsonify({
+            "status": "completed",
+            "total": len(stream_infos)
+        })
+    else:
+        # Start background thread
+        thread = threading.Thread(
+            target=generate_in_background,
+            args=(stream_infos, force)
+        )
+        thread.daemon = True
+        thread.start()
+
+        return jsonify({
+            "status": "started",
+            "total": len(stream_infos),
+            "message": "Thumbnail generation started in background"
+        })

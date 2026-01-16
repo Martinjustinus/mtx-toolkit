@@ -18,7 +18,7 @@ THUMBNAIL_DIR = os.getenv('THUMBNAIL_DIR', '/tmp/thumbnails')
 THUMBNAIL_WIDTH = int(os.getenv('THUMBNAIL_WIDTH', '320'))
 THUMBNAIL_HEIGHT = int(os.getenv('THUMBNAIL_HEIGHT', '180'))
 THUMBNAIL_QUALITY = int(os.getenv('THUMBNAIL_QUALITY', '80'))
-THUMBNAIL_CACHE_SECONDS = int(os.getenv('THUMBNAIL_CACHE_SECONDS', '30'))
+THUMBNAIL_CACHE_SECONDS = int(os.getenv('THUMBNAIL_CACHE_SECONDS', '300'))
 FFMPEG_TIMEOUT = int(os.getenv('FFMPEG_TIMEOUT', '10'))
 
 # HLS port (same as in streams.py)
@@ -117,6 +117,24 @@ class ThumbnailService:
         except Exception as e:
             logger.error(f"Error generating thumbnail for {stream_path}: {e}")
             return None
+
+    def get_cached_thumbnail(
+        self,
+        stream_path: str,
+        node_id: int
+    ) -> Optional[str]:
+        """
+        Get cached thumbnail only (no generation).
+
+        Returns:
+            Path to thumbnail file if exists and fresh, None otherwise
+        """
+        thumb_path = self._get_thumbnail_path(stream_path, node_id)
+
+        if self._is_thumbnail_fresh(thumb_path):
+            return str(thumb_path)
+
+        return None
 
     def get_thumbnail(
         self,

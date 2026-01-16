@@ -33,6 +33,7 @@ MTX Toolkit is an enterprise-grade stream reliability management platform design
 
 | Feature | Description |
 |---------|-------------|
+| **Live Preview** | Grid view with thumbnails, hover-to-play HLS preview, click for fullscreen |
 | **Dual-layer Health Check** | Quick check (API, every 10s) + Deep check (ffprobe, every 5min) |
 | **Real-time Monitoring** | Supports 1000+ streams with millisecond-level status updates |
 | **Auto Remediation** | Smart tiered retry with exponential backoff + jitter |
@@ -47,6 +48,11 @@ MTX Toolkit is an enterprise-grade stream reliability management platform design
 Real-time monitoring of all stream status, health distribution, active alerts, and recent events.
 
 ![Dashboard](docs/screenshots/dashboard.png)
+
+### Live Preview
+Grid view of all streams with auto-generated thumbnails. Hover to play live HLS stream, click for fullscreen player with audio controls.
+
+![Preview](docs/screenshots/preview.png)
 
 ### Fleet Management
 Unified multi-node management showing stream health status (Healthy/Degraded/Unhealthy) for each node.

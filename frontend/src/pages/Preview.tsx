@@ -56,6 +56,7 @@ export default function Preview() {
     refetchInterval: 30000,
   })
 
+
   // Fetch playback config (HLS URLs for each node)
   const { data: playbackConfig } = useQuery<PlaybackConfig>({
     queryKey: ['playback-config'],
