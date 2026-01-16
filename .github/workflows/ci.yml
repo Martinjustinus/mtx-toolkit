@@ -54,11 +54,11 @@ jobs:
         working-directory: backend
         env:
           FLASK_ENV: testing
-          TESTING: true
-          DATABASE_URL: sqlite:///:memory:
-          REDIS_URL: redis://localhost:6379/0
-          MEDIAMTX_API_URL: http://localhost:9998
-          MEDIAMTX_RTSP_URL: rtsp://localhost:8555
+          TESTING: "true"
+          DATABASE_URL: "sqlite:///:memory:"
+          REDIS_URL: "redis://localhost:6379/0"
+          MEDIAMTX_API_URL: "http://localhost:9998"
+          MEDIAMTX_RTSP_URL: "rtsp://localhost:8555"
         run: |
           pytest \
             --cov=app \
