@@ -115,7 +115,7 @@ jobs:
 
       - name: Run Flake8
         working-directory: backend
-        run: flake8 app tests --max-line-length=120 --ignore=E501,W503
+        run: flake8 app tests
 
   # Frontend Tests
   test-frontend:
