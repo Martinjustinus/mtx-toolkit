@@ -24,6 +24,11 @@ export const dashboardApi = {
   getRecentEvents: (limit = 50) => api.get<{ events: StreamEvent[] }>(`/dashboard/events/recent?limit=${limit}`).then(r => r.data),
   getActiveAlerts: () => api.get('/dashboard/alerts/active').then(r => r.data),
   getNodesStatus: () => api.get('/dashboard/nodes/status').then(r => r.data),
+  // Event management
+  cleanupEvents: (days = 7, resolvedOnly = false) =>
+    api.post('/dashboard/events/cleanup', { days, resolved_only: resolvedOnly }).then(r => r.data),
+  resolveAllEvents: () => api.post('/dashboard/events/resolve-all').then(r => r.data),
+  clearResolvedEvents: () => api.post('/dashboard/events/clear-resolved').then(r => r.data),
 }
 
 // Health

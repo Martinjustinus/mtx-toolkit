@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 import {
   Radio,
   Server,
@@ -7,6 +8,7 @@ import {
   Activity,
   CheckCircle,
   XCircle,
+  Trash2,
 } from 'lucide-react'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import StatCard from '../components/StatCard'
@@ -19,6 +21,9 @@ import type { StreamEvent } from '../types'
 
 export default function Dashboard() {
   const { t } = useLanguage()
+  const queryClient = useQueryClient()
+  const [isClearing, setIsClearing] = useState(false)
+
   const { data: overview, isLoading: overviewLoading } = useQuery({
     queryKey: ['dashboard-overview'],
     queryFn: dashboardApi.getOverview,
@@ -36,6 +41,54 @@ export default function Dashboard() {
     queryFn: dashboardApi.getActiveAlerts,
     refetchInterval: 10000,
   })
+
+  const handleResolveAll = async () => {
+    setIsClearing(true)
+    try {
+      await dashboardApi.resolveAllEvents()
+      queryClient.invalidateQueries({ queryKey: ['dashboard-alerts'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-events'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] })
+      alert(t.dashboard.eventsResolved)
+    } catch (error) {
+      alert(`Error: ${error}`)
+    } finally {
+      setIsClearing(false)
+    }
+  }
+
+  const handleClearResolved = async () => {
+    if (!confirm(t.dashboard.confirmClearEvents)) return
+    setIsClearing(true)
+    try {
+      const result = await dashboardApi.clearResolvedEvents()
+      queryClient.invalidateQueries({ queryKey: ['dashboard-alerts'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-events'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] })
+      alert(`${t.dashboard.eventsCleared} (${result.deleted_count})`)
+    } catch (error) {
+      alert(`Error: ${error}`)
+    } finally {
+      setIsClearing(false)
+    }
+  }
+
+  const handleCleanupOldEvents = async () => {
+    const days = prompt('Delete events older than how many days?', '7')
+    if (!days) return
+    setIsClearing(true)
+    try {
+      const result = await dashboardApi.cleanupEvents(parseInt(days), false)
+      queryClient.invalidateQueries({ queryKey: ['dashboard-alerts'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-events'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] })
+      alert(`${t.dashboard.eventsCleared} (${result.deleted_count})`)
+    } catch (error) {
+      alert(`Error: ${error}`)
+    } finally {
+      setIsClearing(false)
+    }
+  }
 
   if (overviewLoading) {
     return (
@@ -176,9 +229,40 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Active Alerts */}
-      {alerts?.alerts?.length > 0 && (
-        <Card title="Active Alerts" subtitle={`${alerts.total} unresolved alerts`}>
+      {/* Active Alerts & Event Management */}
+      <Card
+        title={t.dashboard.activeAlerts}
+        subtitle={`${alerts?.total || 0} unresolved alerts`}
+        action={
+          <div className="flex gap-2">
+            <button
+              onClick={handleResolveAll}
+              disabled={isClearing}
+              className="px-3 py-1.5 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 flex items-center gap-1"
+            >
+              <CheckCircle className="w-4 h-4" />
+              {t.dashboard.resolveAll}
+            </button>
+            <button
+              onClick={handleClearResolved}
+              disabled={isClearing}
+              className="px-3 py-1.5 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 flex items-center gap-1"
+            >
+              <Trash2 className="w-4 h-4" />
+              {t.dashboard.clearResolved}
+            </button>
+            <button
+              onClick={handleCleanupOldEvents}
+              disabled={isClearing}
+              className="px-3 py-1.5 text-sm bg-gray-500 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 flex items-center gap-1"
+            >
+              <Trash2 className="w-4 h-4" />
+              {t.dashboard.cleanupOldEvents}
+            </button>
+          </div>
+        }
+      >
+        {alerts?.alerts?.length > 0 ? (
           <div className="space-y-3">
             {alerts.alerts.slice(0, 5).map((alert: StreamEvent & { duration_minutes: number }) => (
               <div
@@ -198,8 +282,12 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
-        </Card>
-      )}
+        ) : (
+          <div className="py-8 text-center text-gray-500">
+            {t.dashboard.noRecentEvents}
+          </div>
+        )}
+      </Card>
     </div>
   )
 }

@@ -25,6 +25,13 @@ export const translations = {
       noRecentEvents: 'No recent events',
       noStreamsConfigured: 'No streams configured',
       lastUpdated: 'Last updated',
+      clearEvents: 'Clear Events',
+      resolveAll: 'Resolve All',
+      clearResolved: 'Clear Resolved',
+      cleanupOldEvents: 'Cleanup Old Events',
+      eventsCleared: 'Events cleared successfully',
+      eventsResolved: 'All events resolved',
+      confirmClearEvents: 'Are you sure you want to clear all resolved events?',
     },
     // Streams
     streams: {
@@ -237,6 +244,13 @@ export const translations = {
       noRecentEvents: '沒有最近事件',
       noStreamsConfigured: '尚未配置串流',
       lastUpdated: '最後更新',
+      clearEvents: '清除事件',
+      resolveAll: '全部標記已解決',
+      clearResolved: '清除已解決',
+      cleanupOldEvents: '清理舊事件',
+      eventsCleared: '事件已清除',
+      eventsResolved: '所有事件已標記為已解決',
+      confirmClearEvents: '確定要清除所有已解決的事件嗎？',
     },
     // Streams
     streams: {
