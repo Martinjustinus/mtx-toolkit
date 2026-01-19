@@ -14,7 +14,7 @@ from typing import Any, Dict, Optional
 from flask import current_app
 
 from app import db
-from app.models import MediaMTXNode, Recording, Stream, StreamEvent
+from app.models import Recording, Stream, StreamEvent
 
 
 class RetentionManager:

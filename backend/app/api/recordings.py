@@ -198,7 +198,6 @@ def transcode_recording(recording_id: int):
     Transcode recording to MP4 on-the-fly using ffmpeg.
     This allows browsers to play .ts files that they can't natively handle.
     """
-    import shutil
     import tempfile
 
     recording = Recording.query.get_or_404(recording_id)
