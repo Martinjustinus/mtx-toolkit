@@ -12,6 +12,10 @@ import pytest
 
 from app.services.thumbnail_service import ThumbnailService
 
+# Constants for patching
+THUMB_DIR_PATH = "app.services.thumbnail_service.THUMBNAIL_DIR"
+THUMB_CACHE_PATH = "app.services.thumbnail_service.THUMBNAIL_CACHE_SECONDS"
+
 
 class TestThumbnailService:
     """Tests for ThumbnailService."""
@@ -21,18 +25,14 @@ class TestThumbnailService:
         with tempfile.TemporaryDirectory() as temp_dir:
             thumb_dir = os.path.join(temp_dir, "thumbnails")
 
-            with patch(
-                "app.services.thumbnail_service.THUMBNAIL_DIR", thumb_dir
-            ):
+            with patch(THUMB_DIR_PATH, thumb_dir):
                 service = ThumbnailService()
                 assert service.thumbnail_dir.exists()
 
     def test_get_thumbnail_path(self, app_context):
         """Test thumbnail path generation."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            with patch(
-                "app.services.thumbnail_service.THUMBNAIL_DIR", temp_dir
-            ):
+            with patch(THUMB_DIR_PATH, temp_dir):
                 service = ThumbnailService()
                 path = service._get_thumbnail_path("test/stream1", 1)
 
@@ -42,13 +42,9 @@ class TestThumbnailService:
     def test_get_hls_url(self, app_context):
         """Test HLS URL derivation."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            with patch(
-                "app.services.thumbnail_service.THUMBNAIL_DIR", temp_dir
-            ):
+            with patch(THUMB_DIR_PATH, temp_dir):
                 service = ThumbnailService()
-                url = service._get_hls_url(
-                    "test/stream1", "http://localhost:9998"
-                )
+                url = service._get_hls_url("test/stream1", "http://localhost:9998")
 
                 assert "test/stream1" in url
                 assert "index.m3u8" in url
@@ -56,9 +52,7 @@ class TestThumbnailService:
     def test_is_thumbnail_fresh_nonexistent(self, app_context):
         """Test freshness check for nonexistent thumbnail."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            with patch(
-                "app.services.thumbnail_service.THUMBNAIL_DIR", temp_dir
-            ):
+            with patch(THUMB_DIR_PATH, temp_dir):
                 service = ThumbnailService()
                 path = Path(temp_dir) / "nonexistent.jpg"
 
@@ -67,11 +61,7 @@ class TestThumbnailService:
     def test_is_thumbnail_fresh_old(self, app_context):
         """Test freshness check for old thumbnail."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            with patch(
-                "app.services.thumbnail_service.THUMBNAIL_DIR", temp_dir
-            ), patch(
-                "app.services.thumbnail_service.THUMBNAIL_CACHE_SECONDS", 300
-            ):
+            with patch(THUMB_DIR_PATH, temp_dir), patch(THUMB_CACHE_PATH, 300):
                 service = ThumbnailService()
                 path = Path(temp_dir) / "old.jpg"
 
@@ -88,11 +78,7 @@ class TestThumbnailService:
     def test_is_thumbnail_fresh_recent(self, app_context):
         """Test freshness check for recent thumbnail."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            with patch(
-                "app.services.thumbnail_service.THUMBNAIL_DIR", temp_dir
-            ), patch(
-                "app.services.thumbnail_service.THUMBNAIL_CACHE_SECONDS", 300
-            ):
+            with patch(THUMB_DIR_PATH, temp_dir), patch(THUMB_CACHE_PATH, 300):
                 service = ThumbnailService()
                 path = Path(temp_dir) / "recent.jpg"
 
@@ -105,9 +91,7 @@ class TestThumbnailService:
     def test_generate_thumbnail_cached(self, app_context):
         """Test generate thumbnail returns cached version."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            with patch(
-                "app.services.thumbnail_service.THUMBNAIL_DIR", temp_dir
-            ):
+            with patch(THUMB_DIR_PATH, temp_dir):
                 service = ThumbnailService()
 
                 # Create a cached thumbnail
@@ -124,9 +108,7 @@ class TestThumbnailService:
     def test_generate_thumbnail_ffmpeg_success(self, app_context, mock_subprocess):
         """Test thumbnail generation with ffmpeg success."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            with patch(
-                "app.services.thumbnail_service.THUMBNAIL_DIR", temp_dir
-            ):
+            with patch(THUMB_DIR_PATH, temp_dir):
                 service = ThumbnailService()
 
                 # Mock successful ffmpeg run
@@ -149,9 +131,7 @@ class TestThumbnailService:
     def test_generate_thumbnail_ffmpeg_failure(self, app_context, mock_subprocess):
         """Test thumbnail generation with ffmpeg failure."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            with patch(
-                "app.services.thumbnail_service.THUMBNAIL_DIR", temp_dir
-            ):
+            with patch(THUMB_DIR_PATH, temp_dir):
                 service = ThumbnailService()
 
                 # Mock failed ffmpeg run
@@ -170,9 +150,7 @@ class TestThumbnailService:
         import subprocess
 
         with tempfile.TemporaryDirectory() as temp_dir:
-            with patch(
-                "app.services.thumbnail_service.THUMBNAIL_DIR", temp_dir
-            ):
+            with patch(THUMB_DIR_PATH, temp_dir):
                 service = ThumbnailService()
 
                 mock_subprocess["run"].side_effect = subprocess.TimeoutExpired(
@@ -188,9 +166,7 @@ class TestThumbnailService:
     def test_generate_thumbnail_exception(self, app_context, mock_subprocess):
         """Test thumbnail generation with exception."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            with patch(
-                "app.services.thumbnail_service.THUMBNAIL_DIR", temp_dir
-            ):
+            with patch(THUMB_DIR_PATH, temp_dir):
                 service = ThumbnailService()
 
                 mock_subprocess["run"].side_effect = Exception("Unexpected error")
@@ -204,9 +180,7 @@ class TestThumbnailService:
     def test_get_cached_thumbnail_fresh(self, app_context):
         """Test getting cached thumbnail that is fresh."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            with patch(
-                "app.services.thumbnail_service.THUMBNAIL_DIR", temp_dir
-            ):
+            with patch(THUMB_DIR_PATH, temp_dir):
                 service = ThumbnailService()
 
                 # Create a fresh thumbnail
@@ -221,11 +195,7 @@ class TestThumbnailService:
     def test_get_cached_thumbnail_stale(self, app_context):
         """Test getting cached thumbnail that is stale."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            with patch(
-                "app.services.thumbnail_service.THUMBNAIL_DIR", temp_dir
-            ), patch(
-                "app.services.thumbnail_service.THUMBNAIL_CACHE_SECONDS", 1
-            ):
+            with patch(THUMB_DIR_PATH, temp_dir), patch(THUMB_CACHE_PATH, 1):
                 service = ThumbnailService()
 
                 # Create a stale thumbnail
@@ -244,9 +214,7 @@ class TestThumbnailService:
     def test_get_thumbnail_generates_if_needed(self, app_context, mock_subprocess):
         """Test get_thumbnail generates if not cached."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            with patch(
-                "app.services.thumbnail_service.THUMBNAIL_DIR", temp_dir
-            ):
+            with patch(THUMB_DIR_PATH, temp_dir):
                 service = ThumbnailService()
 
                 thumb_path = service._get_thumbnail_path("test/stream1", 1)
@@ -267,9 +235,7 @@ class TestThumbnailService:
     def test_get_thumbnail_url(self, app_context):
         """Test getting thumbnail URL."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            with patch(
-                "app.services.thumbnail_service.THUMBNAIL_DIR", temp_dir
-            ):
+            with patch(THUMB_DIR_PATH, temp_dir):
                 service = ThumbnailService()
                 url = service.get_thumbnail_url("test/stream1", 1)
 
@@ -279,9 +245,7 @@ class TestThumbnailService:
     def test_cleanup_old_thumbnails(self, app_context):
         """Test cleaning up old thumbnails."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            with patch(
-                "app.services.thumbnail_service.THUMBNAIL_DIR", temp_dir
-            ):
+            with patch(THUMB_DIR_PATH, temp_dir):
                 service = ThumbnailService()
 
                 # Create old thumbnail
@@ -307,9 +271,7 @@ class TestThumbnailService:
     def test_cleanup_old_thumbnails_none_old(self, app_context):
         """Test cleanup when no old thumbnails exist."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            with patch(
-                "app.services.thumbnail_service.THUMBNAIL_DIR", temp_dir
-            ):
+            with patch(THUMB_DIR_PATH, temp_dir):
                 service = ThumbnailService()
 
                 # Create only recent thumbnail
