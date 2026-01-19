@@ -162,7 +162,10 @@ class AutoRemediation:
                 else EventType.REMEDIATION_FAILED.value
             ),
             severity="info" if success else "error",
-            message=f"Remediation {'succeeded' if success else 'failed'} for stream {stream.path}",
+            message=(
+                f"Remediation {'succeeded' if success else 'failed'} "
+                f"for stream {stream.path}"
+            ),
             details_json=json.dumps(results),
         )
         db.session.add(end_event)

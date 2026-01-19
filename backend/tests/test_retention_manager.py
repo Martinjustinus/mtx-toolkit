@@ -599,7 +599,9 @@ class TestRetentionManager:
     def test_parse_recording_file_nonexistent(self, app_context):
         """Test parsing nonexistent file."""
         manager = RetentionManager()
-        result = manager._parse_recording_file(Path("/nonexistent/2024-01-15_10-30-00.ts"))
+        result = manager._parse_recording_file(
+            Path("/nonexistent/2024-01-15_10-30-00.ts")
+        )
 
         assert result is None
 

@@ -203,9 +203,13 @@ class FleetManager:
             # Check if batch succeeded
             batch_failed = sum(1 for r in batch_results if not r.get("success"))
             if batch_failed > 0:
+                error_msg = (
+                    f"Batch {batch_num + 1} had {batch_failed} failures, "
+                    "stopping rollout"
+                )
                 return {
                     "success": False,
-                    "error": f"Batch {batch_num + 1} had {batch_failed} failures, stopping rollout",
+                    "error": error_msg,
                     "completed_batches": batch_num + 1,
                     "results": results,
                 }

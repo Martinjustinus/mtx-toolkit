@@ -416,7 +416,13 @@ class RetentionManager:
         Returns:
             Dictionary with scan statistics
         """
-        stats = {"scanned": 0, "added": 0, "skipped": 0, "errors": 0, "error_details": []}
+        stats = {
+            "scanned": 0,
+            "added": 0,
+            "skipped": 0,
+            "errors": 0,
+            "error_details": [],
+        }
 
         try:
             scan_result = self._scan_local_directory(node_id, force_rescan)
@@ -438,7 +444,13 @@ class RetentionManager:
 
         Recording structure: /recordings/{stream_path}/{YYYY-MM-DD_HH-mm-ss}.ts
         """
-        stats = {"scanned": 0, "added": 0, "skipped": 0, "errors": 0, "error_details": []}
+        stats = {
+            "scanned": 0,
+            "added": 0,
+            "skipped": 0,
+            "errors": 0,
+            "error_details": [],
+        }
 
         if not self.recording_path.exists():
             stats["error_details"].append(
@@ -506,6 +518,9 @@ class RetentionManager:
                             )
                             continue
 
+                        retention_days = self.default_policy[
+                            "continuous_retention_days"
+                        ]
                         recording = Recording(
                             stream_id=stream.id,
                             file_path=file_path,
@@ -513,14 +528,16 @@ class RetentionManager:
                             start_time=parsed["start_time"],
                             segment_type="continuous",
                             expires_at=parsed["start_time"]
-                            + timedelta(days=self.default_policy["continuous_retention_days"]),
+                            + timedelta(days=retention_days),
                         )
                         db.session.add(recording)
                         stats["added"] += 1
 
                 except Exception as e:
                     stats["errors"] += 1
-                    stats["error_details"].append(f"Error indexing {file_path}: {str(e)}")
+                    stats["error_details"].append(
+                        f"Error indexing {file_path}: {str(e)}"
+                    )
 
         db.session.commit()
         return stats

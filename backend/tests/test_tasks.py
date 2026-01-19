@@ -53,7 +53,7 @@ class TestCeleryTasks:
             sample_stream.fps = None
             db_session.commit()
 
-            with patch("app.tasks.group") as mock_group:
+            with patch("celery.group") as mock_group:
                 mock_async_result = MagicMock()
                 mock_async_result.get.return_value = [{"stream_id": 1, "healthy": True}]
                 mock_group.return_value.apply_async.return_value = mock_async_result
@@ -259,7 +259,7 @@ class TestCeleryTasks:
             sample_stream.fps = None
             db_session.commit()
 
-            with patch("app.tasks.group") as mock_group:
+            with patch("celery.group") as mock_group:
                 mock_async_result = MagicMock()
                 mock_async_result.get.side_effect = Exception("Timeout")
                 mock_group.return_value.apply_async.return_value = mock_async_result
