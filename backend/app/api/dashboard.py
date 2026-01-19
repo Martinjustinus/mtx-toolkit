@@ -239,37 +239,43 @@ def cleanup_events():
     query.delete(synchronize_session=False)
     db.session.commit()
 
-    return jsonify({
-        "success": True,
-        "deleted_count": count,
-        "cutoff_date": cutoff.isoformat(),
-        "resolved_only": resolved_only,
-    })
+    return jsonify(
+        {
+            "success": True,
+            "deleted_count": count,
+            "cutoff_date": cutoff.isoformat(),
+            "resolved_only": resolved_only,
+        }
+    )
 
 
 @dashboard_bp.route("/events/resolve-all", methods=["POST"])
 def resolve_all_events():
     """Mark all unresolved events as resolved."""
-    count = StreamEvent.query.filter(
-        StreamEvent.resolved.is_(False)
-    ).update({"resolved": True, "resolved_at": datetime.utcnow()})
+    count = StreamEvent.query.filter(StreamEvent.resolved.is_(False)).update(
+        {"resolved": True, "resolved_at": datetime.utcnow()}
+    )
     db.session.commit()
 
-    return jsonify({
-        "success": True,
-        "resolved_count": count,
-    })
+    return jsonify(
+        {
+            "success": True,
+            "resolved_count": count,
+        }
+    )
 
 
 @dashboard_bp.route("/events/clear-resolved", methods=["POST"])
 def clear_resolved_events():
     """Delete all resolved events."""
-    count = StreamEvent.query.filter(
-        StreamEvent.resolved.is_(True)
-    ).delete(synchronize_session=False)
+    count = StreamEvent.query.filter(StreamEvent.resolved.is_(True)).delete(
+        synchronize_session=False
+    )
     db.session.commit()
 
-    return jsonify({
-        "success": True,
-        "deleted_count": count,
-    })
+    return jsonify(
+        {
+            "success": True,
+            "deleted_count": count,
+        }
+    )

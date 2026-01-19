@@ -40,12 +40,13 @@ MTX Toolkit is an enterprise-grade stream reliability management platform design
 | **Fleet Management** | Unified multi-node management across environments (dev/staging/prod) |
 | **Config-as-Code** | Terraform-style plan/apply workflow |
 | **Recording Management** | Directory scanning, online playback, search & pagination, auto-cleanup & archiving |
+| **Event Management** | Bulk resolve, cleanup old events, clear resolved alerts |
 | **i18n** | Traditional Chinese / English |
 
 ## Screenshots
 
 ### Dashboard
-Real-time monitoring of all stream status, health distribution, active alerts, and recent events.
+Real-time monitoring of all stream status, health distribution, active alerts, and recent events. Includes event management buttons to resolve all alerts, clear resolved events, or cleanup old events.
 
 ![Dashboard](docs/screenshots/dashboard.png)
 
@@ -245,6 +246,20 @@ GET /api/recordings/{id}/download
 
 # Trigger cleanup
 POST /api/recordings/retention/cleanup
+```
+
+### Event Management
+
+```bash
+# Resolve all unresolved events
+POST /api/dashboard/events/resolve-all
+
+# Clear all resolved events
+POST /api/dashboard/events/clear-resolved
+
+# Cleanup old events (default: 7 days)
+POST /api/dashboard/events/cleanup
+# Request: { "days": 7, "resolved_only": false }
 ```
 
 ### Configuration Management
