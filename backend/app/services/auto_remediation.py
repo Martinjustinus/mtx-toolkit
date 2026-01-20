@@ -204,10 +204,14 @@ class AutoRemediation:
             # Get all RTSP sessions and kick those on this path
             for session_type in ["rtspsessions", "rtspssessions"]:
                 try:
-                    list_resp = httpx.get(f"{api_url}/v3/{session_type}/list", timeout=10)
+                    list_resp = httpx.get(
+                        f"{api_url}/v3/{session_type}/list", timeout=10
+                    )
                     if list_resp.status_code == 200:
                         data = list_resp.json()
-                        items = data.get("items", []) if isinstance(data, dict) else data
+                        items = (
+                            data.get("items", []) if isinstance(data, dict) else data
+                        )
                         for session in items:
                             session_path = session.get("path", "")
                             session_id = session.get("id", "")
@@ -345,7 +349,9 @@ class AutoRemediation:
                     success=False,
                     action=RemediationAction.RESTART_PATH,
                     message=f"Failed to recreate path: HTTP {create_resp.status_code}",
-                    details={"response": create_resp.text[:200] if create_resp.text else ""},
+                    details={
+                        "response": create_resp.text[:200] if create_resp.text else ""
+                    },
                 )
 
             return RemediationResult(
