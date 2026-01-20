@@ -4,7 +4,7 @@ Celery tasks for background processing.
 
 from datetime import datetime, timedelta
 
-from app import create_app, db
+from app import create_app
 from app.celery_app import celery_app
 from app.models import Recording, Stream, StreamStatus
 
