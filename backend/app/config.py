@@ -76,3 +76,4 @@ class TestingConfig(BaseConfig):
 
     TESTING = True
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+    SQLALCHEMY_ENGINE_OPTIONS = {}  # SQLite 不支援連線池參數
