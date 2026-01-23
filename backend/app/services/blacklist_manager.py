@@ -6,7 +6,7 @@ Note: This is for record-keeping only, does not prevent reconnection.
 
 import logging
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from app import db
 from app.models import IPBlacklist
@@ -328,8 +328,8 @@ class BlacklistManager:
         """Remove expired temporary blocks."""
         now = datetime.utcnow()
         expired = IPBlacklist.query.filter(
-            IPBlacklist.is_active == True,
-            IPBlacklist.is_permanent == False,
+            IPBlacklist.is_active.is_(True),
+            IPBlacklist.is_permanent.is_(False),
             IPBlacklist.expires_at < now,
         ).all()
 
