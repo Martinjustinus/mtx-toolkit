@@ -28,11 +28,13 @@ def create_app(config_name: str = None) -> Flask:
     socketio.init_app(app, cors_allowed_origins="*", async_mode="eventlet")
 
     # Register blueprints
+    from app.api.blacklist import blacklist_bp
     from app.api.config import config_bp
     from app.api.dashboard import dashboard_bp
     from app.api.fleet import fleet_bp
     from app.api.health import health_bp
     from app.api.recordings import recordings_bp
+    from app.api.sessions import sessions_bp
     from app.api.streams import streams_bp
 
     app.register_blueprint(health_bp, url_prefix="/api/health")
@@ -41,6 +43,8 @@ def create_app(config_name: str = None) -> Flask:
     app.register_blueprint(config_bp, url_prefix="/api/config")
     app.register_blueprint(recordings_bp, url_prefix="/api/recordings")
     app.register_blueprint(dashboard_bp, url_prefix="/api/dashboard")
+    app.register_blueprint(sessions_bp, url_prefix="/api/sessions")
+    app.register_blueprint(blacklist_bp, url_prefix="/api/blacklist")
 
     # Create database tables
     with app.app_context():

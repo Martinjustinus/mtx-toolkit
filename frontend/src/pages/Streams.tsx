@@ -12,11 +12,13 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
+  Users,
 } from 'lucide-react'
 import Card from '../components/Card'
 import Modal from '../components/Modal'
 import StatusBadge from '../components/StatusBadge'
-import { streamsApi, healthApi, fleetApi } from '../services/api'
+import StreamViewersModal from '../components/StreamViewersModal'
+import { streamsApi, healthApi, fleetApi, sessionsApi } from '../services/api'
 import { useLanguage } from '../i18n/LanguageContext'
 import type { Stream, StreamStatus, MediaMTXNode } from '../types'
 
@@ -51,6 +53,7 @@ export default function Streams() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [isViewersModalOpen, setIsViewersModalOpen] = useState(false)
   const [selectedStream, setSelectedStream] = useState<Stream | null>(null)
   const [formData, setFormData] = useState<StreamFormData>(initialFormData)
 
@@ -75,6 +78,26 @@ export default function Streams() {
     queryKey: ['fleet-nodes'],
     queryFn: () => fleetApi.listNodes(),
   })
+
+  // Get sessions summary to show viewer counts per stream
+  const { data: sessionsData } = useQuery({
+    queryKey: ['sessions-list'],
+    queryFn: () => sessionsApi.list({ per_page: 10000 }),
+    refetchInterval: 10000,
+  })
+
+  // Calculate viewer count per path
+  const viewersByPath: Record<string, number> = {}
+  if (sessionsData?.sessions) {
+    for (const session of sessionsData.sessions) {
+      viewersByPath[session.path] = (viewersByPath[session.path] || 0) + 1
+    }
+  }
+
+  const handleOpenViewersModal = (stream: Stream) => {
+    setSelectedStream(stream)
+    setIsViewersModalOpen(true)
+  }
 
   const probeMutation = useMutation({
     mutationFn: (streamId: number) => {
@@ -270,6 +293,7 @@ export default function Streams() {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.streams.stream}</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.streams.status}</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.streams.viewers}</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.streams.fps}</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.streams.bitrate}</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t.streams.latency}</th>
@@ -293,6 +317,15 @@ export default function Streams() {
                   </td>
                   <td className="px-6 py-4">
                     <StatusBadge status={stream.status} />
+                  </td>
+                  <td className="px-6 py-4">
+                    <button
+                      onClick={() => handleOpenViewersModal(stream)}
+                      className="flex items-center gap-1.5 px-2 py-1 text-sm rounded hover:bg-gray-100 transition-colors"
+                    >
+                      <Users className="w-4 h-4 text-gray-400" />
+                      <span className="text-gray-600">{viewersByPath[stream.path] || 0}</span>
+                    </button>
                   </td>
                   <td className="px-6 py-4 text-gray-600">
                     {stream.fps ? `${stream.fps.toFixed(1)} fps` : '-'}
@@ -613,6 +646,19 @@ export default function Streams() {
           </div>
         </div>
       </Modal>
+
+      {/* Stream Viewers Modal */}
+      {selectedStream && (
+        <StreamViewersModal
+          isOpen={isViewersModalOpen}
+          onClose={() => {
+            setIsViewersModalOpen(false)
+            setSelectedStream(null)
+          }}
+          streamId={selectedStream.id}
+          streamPath={selectedStream.path}
+        />
+      )}
     </div>
   )
 }

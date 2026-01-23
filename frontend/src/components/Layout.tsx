@@ -9,6 +9,7 @@ import {
   Film,
   FlaskConical,
   Activity,
+  Users,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { useLanguage } from '../i18n/LanguageContext'
@@ -21,6 +22,7 @@ interface LayoutProps {
 const navItems = [
   { path: '/dashboard', labelKey: 'dashboard' as const, icon: LayoutDashboard },
   { path: '/streams', labelKey: 'streams' as const, icon: Radio },
+  { path: '/viewers', labelKey: 'viewers' as const, icon: Users },
   { path: '/preview', labelKey: 'preview' as const, icon: MonitorPlay },
   { path: '/fleet', labelKey: 'fleet' as const, icon: Server },
   { path: '/config', labelKey: 'config' as const, icon: Settings },

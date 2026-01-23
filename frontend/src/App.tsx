@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import Streams from './pages/Streams'
+import Viewers from './pages/Viewers'
 import Preview from './pages/Preview'
 import Fleet from './pages/Fleet'
 import Config from './pages/Config'
@@ -15,6 +16,7 @@ function App() {
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/streams" element={<Streams />} />
+        <Route path="/viewers" element={<Viewers />} />
         <Route path="/preview" element={<Preview />} />
         <Route path="/fleet" element={<Fleet />} />
         <Route path="/config" element={<Config />} />

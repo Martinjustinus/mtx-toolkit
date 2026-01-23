@@ -9,12 +9,13 @@ import {
   CheckCircle,
   XCircle,
   Trash2,
+  Users,
 } from 'lucide-react'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import StatCard from '../components/StatCard'
 import Card from '../components/Card'
 import StatusBadge from '../components/StatusBadge'
-import { dashboardApi } from '../services/api'
+import { dashboardApi, sessionsApi } from '../services/api'
 import { useLanguage } from '../i18n/LanguageContext'
 import type { StreamEvent } from '../types'
 
@@ -39,6 +40,12 @@ export default function Dashboard() {
   const { data: alerts } = useQuery({
     queryKey: ['dashboard-alerts'],
     queryFn: dashboardApi.getActiveAlerts,
+    refetchInterval: 10000,
+  })
+
+  const { data: viewersSummary } = useQuery({
+    queryKey: ['sessions-summary'],
+    queryFn: sessionsApi.getSummary,
     refetchInterval: 10000,
   })
 
@@ -118,12 +125,19 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <StatCard
           title={t.dashboard.totalStreams}
           value={overview?.streams.total || 0}
           subtitle={`${overview?.streams.health_rate || 0}% ${t.dashboard.healthy}`}
           icon={<Radio className="w-6 h-6" />}
+          color="default"
+        />
+        <StatCard
+          title={t.dashboard.activeViewers}
+          value={viewersSummary?.total_viewers || 0}
+          subtitle={`${viewersSummary?.summary?.by_protocol?.rtsp || 0} RTSP, ${viewersSummary?.summary?.by_protocol?.webrtc || 0} WebRTC`}
+          icon={<Users className="w-6 h-6" />}
           color="default"
         />
         <StatCard

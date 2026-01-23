@@ -162,3 +162,33 @@ class ConfigSnapshot(db.Model):
     notes = db.Column(db.Text)
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class IPBlacklist(db.Model):
+    """IP blacklist for blocking viewers."""
+
+    __tablename__ = "ip_blacklist"
+
+    id = db.Column(db.Integer, primary_key=True)
+    ip_address = db.Column(db.String(45), nullable=False, index=True)  # IPv4 or IPv6
+    reason = db.Column(db.String(255))
+    blocked_by = db.Column(db.String(255))  # Who blocked this IP
+
+    # Blocking scope
+    path_pattern = db.Column(db.String(512))  # Specific path or pattern, null = all paths
+    node_id = db.Column(db.Integer, db.ForeignKey("mediamtx_nodes.id"))  # Specific node, null = all nodes
+
+    # Temporary or permanent
+    is_permanent = db.Column(db.Boolean, default=False)
+    expires_at = db.Column(db.DateTime)  # For temporary blocks
+
+    # Status
+    is_active = db.Column(db.Boolean, default=True)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    # Relationship
+    node = db.relationship("MediaMTXNode", backref="blacklisted_ips")

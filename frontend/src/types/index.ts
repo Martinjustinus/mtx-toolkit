@@ -144,6 +144,47 @@ export interface RetentionStatus {
   }
 }
 
+// Session/Viewer types
+export type SessionProtocol = 'rtsp' | 'rtsps' | 'webrtc' | 'rtmp' | 'srt'
+
+export interface ViewerSession {
+  id: string
+  node_id: number
+  node_name: string
+  path: string
+  protocol: SessionProtocol
+  remote_addr: string
+  client_ip: string
+  client_port: number
+  state: string
+  created: string
+  duration_seconds: number
+  bytes_received: number
+  bytes_sent: number
+  transport?: string
+}
+
+export interface SessionsSummary {
+  total_viewers: number
+  by_protocol: Record<string, number>
+  by_node: Record<string, number>
+  by_path: Record<string, number>
+}
+
+export interface SessionsResponse {
+  sessions: ViewerSession[]
+  summary: SessionsSummary
+  total: number
+  page: number
+  pages: number
+  errors?: Array<{
+    node_id: number
+    node_name: string
+    protocol: string
+    error: string
+  }>
+}
+
 // API response types
 export interface PaginatedResponse<T> {
   items: T[]

@@ -8,6 +8,8 @@ import type {
   DashboardOverview,
   ProbeResult,
   RetentionStatus,
+  SessionsResponse,
+  SessionsSummary,
 } from '../types'
 
 const api = axios.create({
@@ -108,6 +110,29 @@ export const recordingsApi = {
   getPlaybackUrl: (id: number) => api.get(`/recordings/playback/${id}`).then(r => r.data),
   scan: (params?: { node_id?: number; force_rescan?: boolean }) =>
     api.post('/recordings/scan', params || {}).then(r => r.data),
+}
+
+// Sessions (Viewers)
+export const sessionsApi = {
+  list: (params?: { node_id?: number; protocol?: string; path?: string; page?: number; per_page?: number }) =>
+    api.get<SessionsResponse>('/sessions/', { params }).then(r => r.data),
+  getSummary: () => api.get<{ summary: SessionsSummary; total_viewers: number }>('/sessions/summary').then(r => r.data),
+  getByNode: (nodeId: number, params?: { protocol?: string; page?: number; per_page?: number }) =>
+    api.get<SessionsResponse>(`/sessions/node/${nodeId}`, { params }).then(r => r.data),
+  getByStream: (streamId: number, params?: { page?: number; per_page?: number }) =>
+    api.get<SessionsResponse>(`/sessions/stream/${streamId}`, { params }).then(r => r.data),
+  getByPath: (path: string, params?: { page?: number; per_page?: number }) =>
+    api.get<SessionsResponse>(`/sessions/path/${path}`, { params }).then(r => r.data),
+  kick: (
+    nodeId: number,
+    sessionId: string,
+    protocol: string,
+  ) =>
+    api.post<{ success: boolean; message?: string; error?: string }>('/sessions/kick', {
+      node_id: nodeId,
+      session_id: sessionId,
+      protocol: protocol,
+    }).then(r => r.data),
 }
 
 export default api

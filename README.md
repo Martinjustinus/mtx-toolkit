@@ -38,6 +38,7 @@ MTX Toolkit is an enterprise-grade stream reliability management platform design
 | **Real-time Monitoring** | Supports 1000+ streams with millisecond-level status updates |
 | **Auto Remediation** | Smart tiered retry with exponential backoff + jitter |
 | **Fleet Management** | Unified multi-node management across environments (dev/staging/prod) |
+| **Viewer Management** | Real-time viewer sessions, filter by protocol/node, kick viewers |
 | **Config-as-Code** | Terraform-style plan/apply workflow |
 | **Recording Management** | Directory scanning, online playback, search & pagination, auto-cleanup & archiving |
 | **Event Management** | Bulk resolve, cleanup old events, clear resolved alerts |
@@ -69,6 +70,11 @@ Complete stream CRUD operations with status filtering, FPS/bitrate monitoring, m
 Recording file management with directory scanning, online playback (TS→MP4 transcode), search across all pages, pagination, disk usage monitoring, and auto-cleanup.
 
 ![Recordings](docs/screenshots/recordings.png)
+
+### Viewers
+Real-time viewer session monitoring across all MediaMTX nodes. Shows client IP, protocol (RTSP/WebRTC/RTMP/SRT), connection duration, data transfer, and allows kicking viewers.
+
+![Viewers](docs/screenshots/viewers.png)
 
 ## Health Check System
 
@@ -260,6 +266,26 @@ POST /api/dashboard/events/clear-resolved
 # Cleanup old events (default: 7 days)
 POST /api/dashboard/events/cleanup
 # Request: { "days": 7, "resolved_only": false }
+```
+
+### Viewer Management
+
+```bash
+# List all viewer sessions (with filters & pagination)
+GET /api/sessions?node_id=1&protocol=rtsp&page=1&per_page=50
+
+# Get viewer summary statistics
+GET /api/sessions/summary
+
+# Get viewers by node
+GET /api/sessions/node/{node_id}
+
+# Get viewers by stream path
+GET /api/sessions/path/{stream_path}
+
+# Kick a viewer session
+POST /api/sessions/kick
+# Request: { "node_id": 1, "session_id": "uuid", "protocol": "rtsp" }
 ```
 
 ### Configuration Management
